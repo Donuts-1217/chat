@@ -1,134 +1,134 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>🔥 簡易聊天室</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
-  <style>
-    body { font-family: "Noto Sans TC", sans-serif; background: #f5f5f5; margin: 0; }
-    #container { width: 95%; max-width: 500px; margin: 40px auto; background: white;
-      border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    #loginBtn { padding: 10px 20px; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    #chat { display:none; }
-    #messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; margin-bottom: 10px; background: #fafafa; }
-    .msg { margin: 4px 0; padding: 5px 8px; background: #e6f0ff; border-radius: 6px; }
-    input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1px solid #ccc; }
-    #msgInput { width: 60%; }
-    #sendBtn { background: #4CAF50; color: white; border: none; cursor: pointer; }
-  </style>
+<meta charset="UTF-8">
+<title>🔥 簡易聊天室</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<style>
+body { font-family: "Noto Sans TC", sans-serif; background: #f5f5f5; margin: 0; }
+#container { width: 95%; max-width: 500px; margin: 40px auto; background: white;
+border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+#loginBtn { padding: 10px 20px; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; }
+#chat { display:none; }
+#messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; margin-bottom: 10px; background: #fafafa; }
+.msg { margin: 4px 0; padding: 5px 8px; background: #e6f0ff; border-radius: 6px; }
+input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1px solid #ccc; }
+#msgInput { width: 60%; }
+#sendBtn { background: #4CAF50; color: white; border: none; cursor: pointer; }
+</style>
 </head>
 <body>
-  <div id="container">
-    <h2>🔥 Firebase 聊天室</h2>
-    <button id="loginBtn">使用 Google 登入</button>
+<div id="container">
+<h2>🔥 Firebase 聊天室</h2>
+<button id="loginBtn">使用 Google 登入</button>
 
-    <div id="chat">
-      <p>👋 歡迎，<span id="user"></span></p>
+<div id="chat">
+<p>👋 歡迎，<span id="user"></span></p>
 
-      <div>
-        <select id="mode">
-          <option value="group">群聊</option>
-          <option value="private">私聊</option>
-        </select>
-        <input id="targetEmail" placeholder="私聊對象 Gmail（群聊可留空）">
-      </div>
+<div>
+<select id="mode">
+<option value="group">群聊</option>
+<option value="private">私聊</option>
+</select>
+<input id="targetEmail" placeholder="私聊對象 Gmail（群聊可留空）">
+</div>
 
-      <div id="messages"></div>
+<div id="messages"></div>
 
-      <input id="msgInput" placeholder="輸入訊息...">
-      <button id="sendBtn">送出</button>
-    </div>
-  </div>
+<input id="msgInput" placeholder="輸入訊息...">
+<button id="sendBtn">送出</button>
+</div>
+</div>
 
-  <script type="module">
-    // 🔧 Firebase 設定
-    const firebaseConfig = {
-      apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
-      authDomain: "chat-52c0d.firebaseapp.com",
-      projectId: "chat-52c0d",
-      storageBucket: "chat-52c0d.firebasestorage.app",
-      messagingSenderId: "449329325475",
-      appId: "1:449329325475:web:75f255c4055360dc9e6616",
-      measurementId: "G-8R8648H53V"
-    };
+<script type="module">
+// 🔧 Firebase 設定
+const firebaseConfig = {
+  apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
+  authDomain: "chat-52c0d.firebaseapp.com",
+  projectId: "chat-52c0d",
+  storageBucket: "chat-52c0d.firebasestorage.app",
+  messagingSenderId: "449329325475",
+  appId: "1:449329325475:web:75f255c4055360dc9e6616",
+  measurementId: "G-8R8648H53V"
+};
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-    const loginBtn = document.getElementById("loginBtn");
-    const chatDiv = document.getElementById("chat");
-    const userSpan = document.getElementById("user");
-    const msgDiv = document.getElementById("messages");
-    const msgInput = document.getElementById("msgInput");
-    const sendBtn = document.getElementById("sendBtn");
-    const modeSel = document.getElementById("mode");
-    const targetInput = document.getElementById("targetEmail");
+const loginBtn = document.getElementById("loginBtn");
+const chatDiv = document.getElementById("chat");
+const userSpan = document.getElementById("user");
+const msgDiv = document.getElementById("messages");
+const msgInput = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+const modeSel = document.getElementById("mode");
+const targetInput = document.getElementById("targetEmail");
 
-    let userEmail = "";
-    let unsub = null;
+let userEmail = "";
+let unsub = null;
 
-    // 🔑 Google 登入
-    loginBtn.onclick = async () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      await auth.signInWithPopup(provider);
-    };
+// 🔑 Google 登入
+loginBtn.onclick = async () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  await auth.signInWithPopup(provider);
+};
 
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        userEmail = user.email;
-        userSpan.textContent = `${user.displayName} (${userEmail})`;
-        loginBtn.style.display = "none";
-        chatDiv.style.display = "block";
-        loadMessages();
-      }
-    });
+auth.onAuthStateChanged(user => {
+  if (user) {
+    userEmail = user.email;
+    userSpan.textContent = `${user.displayName} (${userEmail})`;
+    loginBtn.style.display = "none";
+    chatDiv.style.display = "block";
+    loadMessages();
+  }
+});
 
-    // 💬 聊天室 ID (群聊 或 私聊)
-    function getRoomId() {
-      if (modeSel.value === "group") return "group_chat";
-      const target = targetInput.value.trim();
-      if (!target) return null;
-      return [userEmail, target].sort().join("_");
-    }
+// 💬 聊天室 ID (群聊 或 私聊)
+function getRoomId() {
+  if (modeSel.value === "group") return "group_chat";
+  const target = targetInput.value.trim();
+  if (!target) return null;
+  return [userEmail, target].sort().join("_");
+}
 
-    // 📡 載入訊息
-    function loadMessages() {
-      if (unsub) unsub();
-      const roomId = getRoomId() || "group_chat";
-      unsub = db.collection("messages").doc(roomId).collection("chats")
-        .orderBy("time")
-        .onSnapshot(snap => {
-          msgDiv.innerHTML = "";
-          snap.forEach(doc => {
-            const d = doc.data();
-            const div = document.createElement("div");
-            div.className = "msg";
-            div.textContent = `${d.from}: ${d.text}`;
-            msgDiv.appendChild(div);
-          });
-          msgDiv.scrollTop = msgDiv.scrollHeight;
-        });
-    }
-
-    // 📤 發送訊息
-    sendBtn.onclick = async () => {
-      const text = msgInput.value.trim();
-      if (!text) return;
-      const roomId = getRoomId() || "group_chat";
-      await db.collection("messages").doc(roomId).collection("chats").add({
-        from: userEmail,
-        text,
-        time: firebase.firestore.FieldValue.serverTimestamp()
+// 📡 載入訊息
+function loadMessages() {
+  if (unsub) unsub();
+  const roomId = getRoomId() || "group_chat";
+  unsub = db.collection("messages").doc(roomId).collection("chats")
+    .orderBy("time")
+    .onSnapshot(snap => {
+      msgDiv.innerHTML = "";
+      snap.forEach(doc => {
+        const d = doc.data();
+        const div = document.createElement("div");
+        div.className = "msg";
+        div.textContent = `${d.from}: ${d.text}`;
+        msgDiv.appendChild(div);
       });
-      msgInput.value = "";
-    };
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    });
+}
 
-    modeSel.onchange = loadMessages;
-    targetInput.oninput = loadMessages;
-  </script>
+// 📤 發送訊息
+sendBtn.onclick = async () => {
+  const text = msgInput.value.trim();
+  if (!text) return;
+  const roomId = getRoomId() || "group_chat";
+  await db.collection("messages").doc(roomId).collection("chats").add({
+    from: userEmail,
+    text,
+    time: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  msgInput.value = "";
+};
+
+modeSel.onchange = loadMessages;
+targetInput.oninput = loadMessages;
+</script>
 </body>
 </html>
