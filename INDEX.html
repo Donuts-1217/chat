@@ -1,20 +1,36 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat App (Firebase版)</title>
-  <script type="module">
-    // --- Firebase 初始化 ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { 
-      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-    import { 
-      getFirestore, collection, addDoc, getDocs, setDoc, doc, query, where, updateDoc 
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  <meta charset="utf-8" />
+  <title>Firebase Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #fafafa; text-align: center; margin: 0; }
+    #chat { width: 90%; max-width: 500px; margin: 20px auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 0 5px #ccc; }
+    #messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 5px; margin-bottom: 10px; text-align: left; }
+    .msg { padding: 4px; border-bottom: 1px solid #eee; }
+    input { padding: 8px; width: 70%; }
+    button { padding: 8px; }
+  </style>
+</head>
+<body>
+  <h2>🔥 Firebase Chat</h2>
+  <button id="login">Google 登入</button>
+  <div id="chat" style="display:none;">
+    <p>👋 <span id="user"></span></p>
+    <select id="mode">
+      <option value="group">群聊</option>
+      <option value="private">私聊</option>
+    </select>
+    <input id="target" placeholder="私聊對象 Gmail（群聊留空）">
+    <div id="messages"></div>
+    <input id="msgInput" placeholder="輸入訊息...">
+    <button id="send">送出</button>
+  </div>
 
-    // ✅ 你的 Firebase 設定
+  <script type="module">
     const firebaseConfig = {
       apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
       authDomain: "chat-52c0d.firebaseapp.com",
@@ -25,112 +41,76 @@
       measurementId: "G-8R8648H53V"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-    const adminEmail = "chianghansen0302@gmail.com";
+    const loginBtn = document.getElementById('login');
+    const chatDiv = document.getElementById('chat');
+    const userSpan = document.getElementById('user');
+    const messagesDiv = document.getElementById('messages');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('send');
+    const modeSel = document.getElementById('mode');
+    const targetInput = document.getElementById('target');
 
-    // --- 登入功能 ---
-    async function login() {
-      try {
-        await signInWithPopup(auth, provider);
-      } catch (e) {
-        alert("登入失敗：" + e.message);
-      }
-    }
+    let userEmail = null;
+    let unsub = null;
 
-    async function logout() {
-      await signOut(auth);
-    }
+    loginBtn.onclick = () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider);
+    };
 
-    // --- 新增好友 ---
-    async function addFriend() {
-      const friendEmail = prompt("輸入好友的 Gmail：");
-      if (!friendEmail) return;
-
-      try {
-        await addDoc(collection(db, "friendRequests"), {
-          from: auth.currentUser.email,
-          to: friendEmail,
-          status: "pending",
-          createdAt: Date.now()
-        });
-        alert("邀請已送出！");
-      } catch (e) {
-        alert("邀請失敗：" + e.message);
-      }
-    }
-
-    // --- 建立群組 (僅管理員) ---
-    async function createGroup() {
-      const name = prompt("群組名稱：");
-      if (!name) return;
-      try {
-        await addDoc(collection(db, "groups"), {
-          name,
-          owner: auth.currentUser.email,
-          createdAt: Date.now()
-        });
-        alert("群組已建立！");
-      } catch (e) {
-        alert("建立群組失敗：" + e.message);
-      }
-    }
-
-    // --- 登入狀態監聽 ---
-    onAuthStateChanged(auth, async (user) => {
-      const loginUI = document.getElementById("loginSection");
-      const mainUI = document.getElementById("mainSection");
-      const userInfo = document.getElementById("userInfo");
-      const adminBtn = document.getElementById("createGroupBtn");
-
+    auth.onAuthStateChanged(user => {
       if (user) {
-        loginUI.style.display = "none";
-        mainUI.style.display = "block";
-        userInfo.textContent = `登入中：${user.displayName} (${user.email})`;
-
-        if (user.email === adminEmail) {
-          adminBtn.style.display = "inline-block";
-        } else {
-          adminBtn.style.display = "none";
-        }
-      } else {
-        loginUI.style.display = "block";
-        mainUI.style.display = "none";
+        userEmail = user.email;
+        userSpan.textContent = user.displayName + " (" + userEmail + ")";
+        loginBtn.style.display = "none";
+        chatDiv.style.display = "block";
+        loadMessages();
       }
     });
+
+    function getRoomId() {
+      if (modeSel.value === "group") return "group_chat";
+      let target = targetInput.value.trim();
+      if (!target) return null;
+      return [userEmail, target].sort().join("_");
+    }
+
+    function loadMessages() {
+      if (unsub) unsub();
+      const roomId = getRoomId() || "group_chat";
+      unsub = db.collection("messages").doc(roomId).collection("chats")
+        .orderBy("time")
+        .onSnapshot(snap => {
+          messagesDiv.innerHTML = "";
+          snap.forEach(doc => {
+            const d = doc.data();
+            const div = document.createElement("div");
+            div.className = "msg";
+            div.textContent = `${d.from}: ${d.text}`;
+            messagesDiv.appendChild(div);
+          });
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    }
+
+    sendBtn.onclick = async () => {
+      const text = msgInput.value.trim();
+      if (!text) return;
+      const roomId = getRoomId() || "group_chat";
+      await db.collection("messages").doc(roomId).collection("chats").add({
+        from: userEmail,
+        text,
+        time: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      msgInput.value = "";
+    };
+
+    modeSel.onchange = loadMessages;
+    targetInput.oninput = loadMessages;
   </script>
-
-  <style>
-    body { font-family: "Microsoft JhengHei", sans-serif; background: #f3f4f6; margin: 0; padding: 0; }
-    header { background: #2563eb; color: white; padding: 12px; text-align: center; }
-    section { padding: 16px; }
-    button { margin: 8px; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
-    button:hover { opacity: 0.85; }
-    .primary { background: #2563eb; color: white; }
-    .secondary { background: #e5e7eb; }
-  </style>
-</head>
-<body>
-  <header>
-    <h2>💬 Chat App</h2>
-  </header>
-
-  <section id="loginSection" style="text-align:center;">
-    <p>請使用 Google 登入以繼續</p>
-    <button class="primary" onclick="login()">🔑 Google 登入</button>
-  </section>
-
-  <section id="mainSection" style="display:none;">
-    <div id="userInfo" style="margin-bottom:10px;"></div>
-    <button class="secondary" onclick="logout()">🚪 登出</button>
-    <hr>
-    <h3>📋 主選單</h3>
-    <button class="primary" onclick="addFriend()">➕ 新增好友</button>
-    <button class="primary" id="createGroupBtn" onclick="createGroup()" style="display:none;">🏗️ 建立群組（管理員）</button>
-    <p>（接下來可在此擴充私訊與群聊頁面）</p>
-  </section>
 </body>
 </html>
