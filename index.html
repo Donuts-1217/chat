@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>🔥 即時聊天室（完整可用）</title>
+<title>🔥 好友與群聊聊天室</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -65,7 +65,15 @@ input { padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; m
 
 <script>
 // Firebase 初始化
-const firebaseConfig = { apiKey:"AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU", authDomain:"chat-52c0d.firebaseapp.com", projectId:"chat-52c0d", storageBucket:"chat-52c0d.firebasestorage.app", messagingSenderId:"449329325475", appId:"1:449329325475:web:75f255c4055360dc9e6616", measurementId:"G-8R8648H53V" };
+const firebaseConfig = { 
+  apiKey:"AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU", 
+  authDomain:"chat-52c0d.firebaseapp.com", 
+  projectId:"chat-52c0d", 
+  storageBucket:"chat-52c0d.firebasestorage.app", 
+  messagingSenderId:"449329325475", 
+  appId:"1:449329325475:web:75f255c4055360dc9e6616", 
+  measurementId:"G-8R8648H53V" 
+};
 firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth();
 const db=firebase.firestore();
