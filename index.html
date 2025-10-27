@@ -16,7 +16,7 @@ body { font-family:"Noto Sans TC",sans-serif; margin:0; background:#edf2f7; }
 .sidebar { width:25%; background:#f7f9fc; padding:15px; display:flex; flex-direction:column; border-right:1px solid #e0e0e0; }
 .sidebar h3 { margin:10px 0 5px 0; font-size:16px; color:#333; }
 ul { list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; background:#fff; border-radius:8px; border:1px solid #ddd; }
-li { padding:10px; cursor:pointer; border-bottom:1px solid #eee; transition:0.2s; }
+li { padding:10px; cursor:pointer; border-bottom:1px solid #eee; transition:0.2s; position:relative;}
 li:hover { background:#e0f0ff; font-weight:500; }
 button { padding:8px; margin:5px 0; border-radius:6px; border:none; cursor:pointer; font-size:14px; }
 #loginBtn { background:#4285F4; color:white; font-weight:500; }
@@ -38,6 +38,10 @@ input { padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; m
 .request-btn { padding:4px 6px; margin-left:4px; border-radius:4px; font-size:12px; }
 /* 最高管理員監看按鈕 */
 #watchBtn { position:absolute; right:15px; bottom:15px; background:#9b59b6; color:white; display:none; }
+/* 右鍵選單 */
+.context-menu { position:absolute; background:#fff; border:1px solid #ccc; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.15); z-index:1000; display:none; flex-direction:column; min-width:120px; }
+.context-menu button { padding:6px 10px; border:none; background:none; text-align:left; cursor:pointer; width:100%; }
+.context-menu button:hover { background:#e0f0ff; }
 </style>
 </head>
 <body>
@@ -72,6 +76,13 @@ input { padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; m
   </div>
 </div>
 
+<!-- 右鍵選單 -->
+<div id="contextMenu" class="context-menu">
+  <button id="addToGroupBtn">加入群組</button>
+  <button id="kickBtn">踢出</button>
+  <button id="changeRoleBtn">調整權限</button>
+</div>
+
 <script>
 // Firebase 初始化
 const firebaseConfig = {
@@ -101,10 +112,16 @@ const chatArea = document.getElementById("chatArea");
 const requestList = document.getElementById("requestList");
 const watchBtn = document.getElementById("watchBtn");
 
+const contextMenu = document.getElementById("contextMenu");
+const addToGroupBtn = document.getElementById("addToGroupBtn");
+const kickBtn = document.getElementById("kickBtn");
+const changeRoleBtn = document.getElementById("changeRoleBtn");
+
 let userEmail = "";
 let userRole = "user"; // user / mod / admin
 let chatWindows = {};
 let watchWindow = null;
+let selectedUserForMenu = "";
 
 // 登入登出
 loginBtn.onclick = async ()=>{ await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
@@ -151,13 +168,28 @@ function loadFriends(){
     snap.forEach(doc=>{
       const li = document.createElement("li");
       li.textContent = doc.data().email;
+
+      // 右鍵選單
+      li.addEventListener("contextmenu",(e)=>{
+        e.preventDefault();
+        if(userRole==="mod" || userRole==="admin"){
+          selectedUserForMenu = doc.data().email;
+          contextMenu.style.top = e.clientY + "px";
+          contextMenu.style.left = e.clientX + "px";
+          contextMenu.style.display = "flex";
+        }
+      });
+
       li.onclick = ()=>openChatWindow([userEmail,doc.data().email].sort().join("_"), doc.data().email);
       friendList.appendChild(li);
     });
   });
 }
 
-// 群聊清單
+// 點擊空白隱藏右鍵選單
+document.addEventListener("click", ()=>{ contextMenu.style.display="none"; });
+
+// 群組清單
 function loadGroups(){
   db.collection("groups").onSnapshot(snap=>{
     groupList.innerHTML="";
@@ -190,7 +222,7 @@ addFriendBtn.onclick = async ()=>{
   }
 };
 
-// 加載好友請求
+// 好友請求
 function loadRequests(){
   db.collection("users").doc(userEmail).collection("requests")
     .where("status","==","pending")
@@ -200,7 +232,6 @@ function loadRequests(){
         const data = doc.data();
         const li = document.createElement("li");
         li.textContent = `${data.from} 想加你為好友`;
-
         const acceptBtn = document.createElement("button");
         acceptBtn.textContent="同意";
         acceptBtn.className="request-btn";
@@ -209,14 +240,12 @@ function loadRequests(){
           await db.collection("users").doc(data.from).collection("friends").doc(userEmail).set({email:userEmail});
           await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"accepted"});
         };
-
         const rejectBtn = document.createElement("button");
         rejectBtn.textContent="拒絕";
         rejectBtn.className="request-btn";
         rejectBtn.onclick = async ()=>{
           await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"rejected"});
         };
-
         li.appendChild(acceptBtn);
         li.appendChild(rejectBtn);
         requestList.appendChild(li);
@@ -224,7 +253,7 @@ function loadRequests(){
     });
 }
 
-// 建立群聊（低階管理員以上）
+// 建立群組（低階管理員以上）
 createGroupBtn.onclick=async ()=>{
   if(userRole==="user") return alert("無權限建立群組");
   const name=newGroupName.value.trim();
@@ -291,7 +320,6 @@ function openChatWindow(roomId, title, watchMode=false){
       });
       input.value="";
     }
-    // Enter / Shift+Enter
     input.addEventListener("keydown", async (e)=>{
       if(e.key==="Enter" && !e.shiftKey){
         e.preventDefault();
@@ -303,7 +331,8 @@ function openChatWindow(roomId, title, watchMode=false){
 
 // 監看私聊（最高管理員）
 watchBtn.onclick = async ()=>{
-  if(watchWindow) return; // 已開啟
+  if(userRole!=="admin") return;
+  if(watchWindow) return;
   watchWindow = true;
   const allUsers = await db.collection("users").get();
   const pairs = [];
@@ -312,9 +341,23 @@ watchBtn.onclick = async ()=>{
       if(u1.id!==u2.id) pairs.push([u1.id,u2.id].sort().join("_"));
     });
   });
-  // 開啟第一個聊天窗
   if(pairs.length>0) openChatWindow(pairs[0], "監看私聊", true);
-};
+}
+
+// 右鍵功能
+addToGroupBtn.onclick = async ()=>{
+  if(userRole==="user") return;
+  alert(`將 ${selectedUserForMenu} 加入群組功能`);
+}
+kickBtn.onclick = async ()=>{
+  if(userRole==="user") return;
+  alert(`將 ${selectedUserForMenu} 踢出功能`);
+}
+changeRoleBtn.onclick = async ()=>{
+  if(userRole==="user") return;
+  alert(`調整 ${selectedUserForMenu} 權限功能`);
+}
+
 </script>
 </body>
 </html>
