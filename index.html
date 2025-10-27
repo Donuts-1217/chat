@@ -34,7 +34,7 @@ button { padding:8px; margin:5px 0; border-radius:6px; border:none; cursor:point
 .chat-input input { flex:1; padding:6px 10px; border:none; outline:none; font-size:13px; }
 .chat-input button { padding:6px 12px; background:#2ecc71; color:white; border:none; cursor:pointer; font-weight:500; border-radius:0 0 10px 0; }
 
-/* 右側新增好友 + 請求 */
+/* 右側新增好友 + 好友請求 */
 .rightbar { width:25%; padding:15px; background:#f7f9fc; display:flex; flex-direction:column; border-left:1px solid #e0e0e0; }
 .rightbar h3 { margin:10px 0 5px 0; font-size:16px; color:#333; }
 input { padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; margin-bottom:5px; }
@@ -102,77 +102,27 @@ const requestList = document.getElementById("requestList");
 let userEmail = "";
 let chatWindows = {};
 
-// Google 登入
-loginBtn.onclick = async () => {
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    const result = await auth.signInWithPopup(provider);
-    const user = result.user;
+// 登入登出
+loginBtn.onclick = async ()=>{ await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+logoutBtn.onclick = async ()=>{
+  await auth.signOut();
+  chatWindows={};
+  chatArea.innerHTML="";
+  friendList.innerHTML="";
+  groupList.innerHTML="";
+  requestList.innerHTML="";
+}
+
+auth.onAuthStateChanged(async user=>{
+  if(user){
     userEmail = user.email;
     userSpan.textContent = `${user.displayName} (${userEmail})`;
-
-    loginBtn.style.display = "none";
-    logoutBtn.style.display = "inline-block";
-
-    await db.collection("users").doc(userEmail).set({
-      name: user.displayName,
-      email: userEmail
-    }, { merge: true });
-
+    loginBtn.style.display="none";
+    logoutBtn.style.display="inline-block";
+    await db.collection("users").doc(userEmail).set({name:user.displayName,email:userEmail},{merge:true});
     loadFriends();
     loadGroups();
     loadRequests();
-  } catch (err) {
-    console.error("登入失敗：", err);
-    alert("登入失敗：" + err.message);
-  }
-};
-
-// 登出
-logoutBtn.onclick = async () => {
-  try {
-    await auth.signOut();
-    userEmail = "";
-    chatWindows = {};
-    chatArea.innerHTML = "";
-    friendList.innerHTML = "";
-    groupList.innerHTML = "";
-    requestList.innerHTML = "";
-    loginBtn.style.display = "inline-block";
-    logoutBtn.style.display = "none";
-    userSpan.textContent = "";
-  } catch (err) {
-    console.error("登出失敗：", err);
-    alert("登出失敗：" + err.message);
-  }
-};
-
-// 監聽登入狀態
-auth.onAuthStateChanged(user => {
-  if (user) {
-    userEmail = user.email;
-    userSpan.textContent = `${user.displayName} (${userEmail})`;
-    loginBtn.style.display = "none";
-    logoutBtn.style.display = "inline-block";
-
-    db.collection("users").doc(userEmail).set({
-      name: user.displayName,
-      email: userEmail
-    }, { merge: true });
-
-    loadFriends();
-    loadGroups();
-    loadRequests();
-  } else {
-    userEmail = "";
-    chatWindows = {};
-    chatArea.innerHTML = "";
-    friendList.innerHTML = "";
-    groupList.innerHTML = "";
-    requestList.innerHTML = "";
-    loginBtn.style.display = "inline-block";
-    logoutBtn.style.display = "none";
-    userSpan.textContent = "";
   }
 });
 
