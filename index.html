@@ -5,51 +5,78 @@
 <title>🔥 簡易聊天室</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Firebase compat 版本 -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
 body { font-family: "Noto Sans TC", sans-serif; background: #f5f5f5; margin: 0; }
-#container { width: 95%; max-width: 500px; margin: 40px auto; background: white;
-border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-#loginBtn { padding: 10px 20px; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; }
-#chat { display:none; }
-#messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; margin-bottom: 10px; background: #fafafa; }
-.msg { margin: 4px 0; padding: 5px 8px; background: #e6f0ff; border-radius: 6px; }
-input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1px solid #ccc; }
-#msgInput { width: 60%; }
+#container { display: flex; width: 95%; max-width: 1000px; margin: 40px auto; background: white;
+border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; }
+
+.sidebar, .rightbar { width: 25%; background: #f9f9f9; padding: 15px; border-right: 1px solid #ddd; box-sizing: border-box; }
+.rightbar { border-right: none; border-left: 1px solid #ddd; }
+.chat { flex: 1; padding: 15px; display: flex; flex-direction: column; }
+
+h2 { margin-top: 0; }
+
+button, input, select { padding: 8px; margin: 4px 0; border-radius: 5px; border: 1px solid #ccc; }
 #sendBtn { background: #4CAF50; color: white; border: none; cursor: pointer; }
+#loginBtn { padding: 10px 20px; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; }
 #logoutBtn { background: #f44336; color: white; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer; float:right; }
+
+#messages { flex: 1; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; background: #fafafa; margin-bottom: 10px; }
+.msg { margin: 4px 0; padding: 5px 8px; background: #e6f0ff; border-radius: 6px; }
+
+#msgInput { flex: none; width: 70%; }
+.input-area { display: flex; }
 </style>
 </head>
 <body>
+
 <div id="container">
-<h2>🔥 Firebase 聊天室</h2>
-<button id="loginBtn">使用 Google 登入</button>
-<button id="logoutBtn" style="display:none;">登出</button>
+  <!-- 左側好友/群聊 -->
+  <div class="sidebar">
+    <h3>好友清單</h3>
+    <ul id="friendList"></ul>
+    <h3>群聊清單</h3>
+    <ul id="groupList"></ul>
+    <button id="createGroupBtn">建立群聊</button>
+  </div>
 
-<div id="chat">
-<p>👋 歡迎，<span id="user"></span></p>
+  <!-- 中間聊天區 -->
+  <div class="chat">
+    <div>
+      <button id="loginBtn">使用 Google 登入</button>
+      <button id="logoutBtn" style="display:none;">登出</button>
+    </div>
+    <p>👋 歡迎，<span id="user"></span></p>
 
-<div>
-<select id="mode">
-<option value="group">群聊</option>
-<option value="private">私聊</option>
-</select>
-<input id="targetEmail" placeholder="私聊對象 Gmail（群聊可留空）">
-</div>
+    <div>
+      <select id="mode">
+        <option value="group">群聊</option>
+        <option value="private">私聊</option>
+      </select>
+      <input id="targetEmail" placeholder="私聊對象 Gmail（群聊可留空）">
+    </div>
 
-<div id="messages"></div>
+    <div id="messages"></div>
 
-<input id="msgInput" placeholder="輸入訊息...">
-<button id="sendBtn">送出</button>
-</div>
+    <div class="input-area">
+      <input id="msgInput" placeholder="輸入訊息...">
+      <button id="sendBtn">送出</button>
+    </div>
+  </div>
+
+  <!-- 右側新增好友 -->
+  <div class="rightbar">
+    <h3>新增好友</h3>
+    <input id="addFriendEmail" placeholder="輸入 Gmail">
+    <button id="addFriendBtn">新增好友</button>
+  </div>
 </div>
 
 <script>
-  // 🔧 Firebase 設定
   const firebaseConfig = {
     apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
     authDomain: "chat-52c0d.firebaseapp.com",
@@ -59,14 +86,13 @@ input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1
     appId: "1:449329325475:web:75f255c4055360dc9e6616",
     measurementId: "G-8R8648H53V"
   };
-
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
 
   const loginBtn = document.getElementById("loginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
-  const chatDiv = document.getElementById("chat");
+  const chatDiv = document.querySelector(".chat");
   const userSpan = document.getElementById("user");
   const msgDiv = document.getElementById("messages");
   const msgInput = document.getElementById("msgInput");
@@ -77,13 +103,11 @@ input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1
   let userEmail = "";
   let unsub = null;
 
-  // 🔑 Google 登入
   loginBtn.onclick = async () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithPopup(provider);
   };
 
-  // 🔒 登出
   logoutBtn.onclick = async () => {
     await auth.signOut();
     loginBtn.style.display = "inline-block";
@@ -92,19 +116,17 @@ input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1
     msgDiv.innerHTML = "";
   };
 
-  // 監聽登入狀態
   auth.onAuthStateChanged(user => {
     if (user) {
       userEmail = user.email;
       userSpan.textContent = `${user.displayName} (${userEmail})`;
       loginBtn.style.display = "none";
       logoutBtn.style.display = "inline-block";
-      chatDiv.style.display = "block";
+      chatDiv.style.display = "flex";
       loadMessages();
     }
   });
 
-  // 💬 聊天室 ID (群聊 或 私聊)
   function getRoomId() {
     if (modeSel.value === "group") return "group_chat";
     const target = targetInput.value.trim();
@@ -112,7 +134,6 @@ input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1
     return [userEmail, target].sort().join("_");
   }
 
-  // 📡 載入訊息
   function loadMessages() {
     if (unsub) unsub();
     const roomId = getRoomId() || "group_chat";
@@ -131,7 +152,6 @@ input, select, button { padding: 8px; margin: 4px; border-radius: 5px; border: 1
       });
   }
 
-  // 📤 發送訊息
   sendBtn.onclick = async () => {
     const text = msgInput.value.trim();
     if (!text) return;
