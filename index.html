@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>🔥 簡易聊天室</title>
+<title>🔥 完整聊天室</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -10,26 +10,22 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-body { font-family: "Noto Sans TC", sans-serif; background: #f5f5f5; margin: 0; }
-#container { display: flex; width: 95%; max-width: 1000px; margin: 40px auto; background: white;
-border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; }
-
-.sidebar, .rightbar { width: 25%; background: #f9f9f9; padding: 15px; border-right: 1px solid #ddd; box-sizing: border-box; }
-.rightbar { border-right: none; border-left: 1px solid #ddd; }
-.chat { flex: 1; padding: 15px; display: flex; flex-direction: column; }
-
-h2 { margin-top: 0; }
-
-button, input, select { padding: 8px; margin: 4px 0; border-radius: 5px; border: 1px solid #ccc; }
-#sendBtn { background: #4CAF50; color: white; border: none; cursor: pointer; }
-#loginBtn { padding: 10px 20px; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; }
-#logoutBtn { background: #f44336; color: white; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer; float:right; }
-
+body { font-family: "Noto Sans TC", sans-serif; background: #f0f2f5; margin: 0; }
+#container { display: flex; width: 95%; max-width: 1200px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+.sidebar, .rightbar { width: 25%; background: #f9f9f9; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; }
+.chat { flex: 1; display: flex; flex-direction: column; padding: 15px; }
+h3 { margin: 5px 0; }
+ul { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; border: 1px solid #ddd; border-radius: 5px; background: #fff; }
+li { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+li:hover { background: #e6f0ff; }
+button { padding: 8px; margin: 5px 0; border-radius: 5px; border: none; cursor: pointer; }
+#sendBtn { background: #4CAF50; color: white; }
+#loginBtn { background: #4285F4; color: white; margin-bottom: 10px; }
+#logoutBtn { background: #f44336; color: white; float: right; }
 #messages { flex: 1; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; background: #fafafa; margin-bottom: 10px; }
-.msg { margin: 4px 0; padding: 5px 8px; background: #e6f0ff; border-radius: 6px; }
-
-#msgInput { flex: none; width: 70%; }
+.msg { margin: 4px 0; padding: 5px 8px; border-radius: 6px; background: #e6f0ff; }
 .input-area { display: flex; }
+.input-area input { flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
 </style>
 </head>
 <body>
@@ -41,6 +37,7 @@ button, input, select { padding: 8px; margin: 4px 0; border-radius: 5px; border:
     <ul id="friendList"></ul>
     <h3>群聊清單</h3>
     <ul id="groupList"></ul>
+    <input id="newGroupName" placeholder="群聊名稱">
     <button id="createGroupBtn">建立群聊</button>
   </div>
 
@@ -51,14 +48,6 @@ button, input, select { padding: 8px; margin: 4px 0; border-radius: 5px; border:
       <button id="logoutBtn" style="display:none;">登出</button>
     </div>
     <p>👋 歡迎，<span id="user"></span></p>
-
-    <div>
-      <select id="mode">
-        <option value="group">群聊</option>
-        <option value="private">私聊</option>
-      </select>
-      <input id="targetEmail" placeholder="私聊對象 Gmail（群聊可留空）">
-    </div>
 
     <div id="messages"></div>
 
@@ -77,95 +66,140 @@ button, input, select { padding: 8px; margin: 4px 0; border-radius: 5px; border:
 </div>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
-    authDomain: "chat-52c0d.firebaseapp.com",
-    projectId: "chat-52c0d",
-    storageBucket: "chat-52c0d.firebasestorage.app",
-    messagingSenderId: "449329325475",
-    appId: "1:449329325475:web:75f255c4055360dc9e6616",
-    measurementId: "G-8R8648H53V"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+const firebaseConfig = {
+  apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
+  authDomain: "chat-52c0d.firebaseapp.com",
+  projectId: "chat-52c0d",
+  storageBucket: "chat-52c0d.firebasestorage.app",
+  messagingSenderId: "449329325475",
+  appId: "1:449329325475:web:75f255c4055360dc9e6616",
+  measurementId: "G-8R8648H53V"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-  const loginBtn = document.getElementById("loginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const chatDiv = document.querySelector(".chat");
-  const userSpan = document.getElementById("user");
-  const msgDiv = document.getElementById("messages");
-  const msgInput = document.getElementById("msgInput");
-  const sendBtn = document.getElementById("sendBtn");
-  const modeSel = document.getElementById("mode");
-  const targetInput = document.getElementById("targetEmail");
+// DOM
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const userSpan = document.getElementById("user");
+const msgDiv = document.getElementById("messages");
+const msgInput = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+const friendList = document.getElementById("friendList");
+const groupList = document.getElementById("groupList");
+const addFriendEmail = document.getElementById("addFriendEmail");
+const addFriendBtn = document.getElementById("addFriendBtn");
+const createGroupBtn = document.getElementById("createGroupBtn");
+const newGroupName = document.getElementById("newGroupName");
 
-  let userEmail = "";
-  let unsub = null;
+let userEmail = "";
+let currentRoom = "group_chat";
+let unsub = null;
 
-  loginBtn.onclick = async () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
-  };
+// 登入/登出
+loginBtn.onclick = async () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  await auth.signInWithPopup(provider);
+};
+logoutBtn.onclick = async () => {
+  await auth.signOut();
+  loginBtn.style.display = "inline-block";
+  logoutBtn.style.display = "none";
+  msgDiv.innerHTML = "";
+  friendList.innerHTML = "";
+  groupList.innerHTML = "";
+};
 
-  logoutBtn.onclick = async () => {
-    await auth.signOut();
-    loginBtn.style.display = "inline-block";
-    logoutBtn.style.display = "none";
-    chatDiv.style.display = "none";
-    msgDiv.innerHTML = "";
-  };
-
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      userEmail = user.email;
-      userSpan.textContent = `${user.displayName} (${userEmail})`;
-      loginBtn.style.display = "none";
-      logoutBtn.style.display = "inline-block";
-      chatDiv.style.display = "flex";
-      loadMessages();
-    }
-  });
-
-  function getRoomId() {
-    if (modeSel.value === "group") return "group_chat";
-    const target = targetInput.value.trim();
-    if (!target) return null;
-    return [userEmail, target].sort().join("_");
+// 監聽登入狀態
+auth.onAuthStateChanged(user => {
+  if (user) {
+    userEmail = user.email;
+    userSpan.textContent = `${user.displayName} (${userEmail})`;
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
+    loadFriends();
+    loadGroups();
+    joinRoom("group_chat");
   }
+});
 
-  function loadMessages() {
-    if (unsub) unsub();
-    const roomId = getRoomId() || "group_chat";
-    unsub = db.collection("messages").doc(roomId).collection("chats")
-      .orderBy("time")
-      .onSnapshot(snap => {
-        msgDiv.innerHTML = "";
-        snap.forEach(doc => {
-          const d = doc.data();
-          const div = document.createElement("div");
-          div.className = "msg";
-          div.textContent = `${d.from}: ${d.text}`;
-          msgDiv.appendChild(div);
-        });
-        msgDiv.scrollTop = msgDiv.scrollHeight;
+// 載入好友列表
+function loadFriends() {
+  friendList.innerHTML = "";
+  db.collection("users").doc(userEmail).collection("friends")
+    .onSnapshot(snap => {
+      friendList.innerHTML = "";
+      snap.forEach(doc => {
+        const li = document.createElement("li");
+        li.textContent = doc.data().email;
+        li.onclick = () => joinRoom([userEmail, doc.data().email].sort().join("_"));
+        friendList.appendChild(li);
       });
-  }
-
-  sendBtn.onclick = async () => {
-    const text = msgInput.value.trim();
-    if (!text) return;
-    const roomId = getRoomId() || "group_chat";
-    await db.collection("messages").doc(roomId).collection("chats").add({
-      from: userEmail,
-      text,
-      time: firebase.firestore.FieldValue.serverTimestamp()
     });
-    msgInput.value = "";
-  };
+}
 
-  modeSel.onchange = loadMessages;
-  targetInput.oninput = loadMessages;
+// 載入群聊列表
+function loadGroups() {
+  groupList.innerHTML = "";
+  db.collection("groups")
+    .onSnapshot(snap => {
+      groupList.innerHTML = "";
+      snap.forEach(doc => {
+        const li = document.createElement("li");
+        li.textContent = doc.id;
+        li.onclick = () => joinRoom(doc.id);
+        groupList.appendChild(li);
+      });
+    });
+}
+
+// 建立群聊
+createGroupBtn.onclick = async () => {
+  const name = newGroupName.value.trim();
+  if (!name) return alert("請輸入群聊名稱");
+  await db.collection("groups").doc(name).set({createdBy: userEmail});
+  newGroupName.value = "";
+};
+
+// 新增好友
+addFriendBtn.onclick = async () => {
+  const email = addFriendEmail.value.trim();
+  if (!email) return alert("請輸入好友 Gmail");
+  await db.collection("users").doc(userEmail).collection("friends").doc(email).set({email});
+  addFriendEmail.value = "";
+};
+
+// 加入聊天室
+function joinRoom(roomId) {
+  if (unsub) unsub();
+  currentRoom = roomId;
+  unsub = db.collection("messages").doc(currentRoom).collection("chats")
+    .orderBy("time")
+    .onSnapshot(snap => {
+      msgDiv.innerHTML = "";
+      snap.forEach(doc => {
+        const d = doc.data();
+        const div = document.createElement("div");
+        div.className = "msg";
+        div.textContent = `${d.from}: ${d.text}`;
+        msgDiv.appendChild(div);
+      });
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    });
+}
+
+// 發送訊息
+sendBtn.onclick = async () => {
+  const text = msgInput.value.trim();
+  if (!text) return;
+  await db.collection("messages").doc(currentRoom).collection("chats").add({
+    from: userEmail,
+    text,
+    time: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  msgInput.value = "";
+};
 </script>
 </body>
 </html>
