@@ -143,9 +143,7 @@ addFriendBtn.onclick=async ()=>{
   const email = addFriendEmail.value.trim();
   if(!email) return alert("請輸入好友 Gmail");
   try{
-    // 確保好友也存在 users 集合
     await db.collection("users").doc(email).set({email},{merge:true});
-    // 加入當前使用者 friends 子集合
     await db.collection("users").doc(userEmail).collection("friends").doc(email).set({email});
     addFriendEmail.value="";
   } catch(err){
