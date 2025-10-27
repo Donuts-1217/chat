@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>🔥 完整聊天室</title>
+<title>🔥 桌面 IM 聊天室</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -10,29 +10,35 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-body { font-family: "Noto Sans TC", sans-serif; background: #f0f2f5; margin: 0; }
-#container { display: flex; width: 95%; max-width: 1200px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
-.sidebar, .rightbar { width: 25%; background: #f9f9f9; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; }
-.chat { flex: 1; display: flex; flex-direction: column; padding: 15px; }
-h3 { margin: 5px 0; }
-ul { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; border: 1px solid #ddd; border-radius: 5px; background: #fff; }
-li { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
-li:hover { background: #e6f0ff; }
-button { padding: 8px; margin: 5px 0; border-radius: 5px; border: none; cursor: pointer; }
-#sendBtn { background: #4CAF50; color: white; }
-#loginBtn { background: #4285F4; color: white; margin-bottom: 10px; }
-#logoutBtn { background: #f44336; color: white; float: right; }
-#messages { flex: 1; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; background: #fafafa; margin-bottom: 10px; }
-.msg { margin: 4px 0; padding: 5px 8px; border-radius: 6px; background: #e6f0ff; }
-.input-area { display: flex; }
-.input-area input { flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
+body { font-family:"Noto Sans TC",sans-serif; background:#f0f2f5; margin:0; }
+#container { display:flex; width:95%; max-width:1200px; margin:20px auto; background:white; border-radius:10px; overflow:hidden; box-shadow:0 3px 8px rgba(0,0,0,0.15); height:600px; }
+.sidebar { width:25%; padding:15px; box-sizing:border-box; display:flex; flex-direction:column; background:#f9f9f9; }
+.chat-area { flex:1; position:relative; padding:15px; overflow-x:auto; display:flex; align-items:flex-start; }
+h3 { margin:5px 0; }
+ul { list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; border:1px solid #ddd; border-radius:5px; background:#fff; }
+li { padding:8px; cursor:pointer; border-bottom:1px solid #eee; }
+li:hover { background:#e6f0ff; }
+button { padding:6px; margin:5px 0; border-radius:5px; border:none; cursor:pointer; }
+#loginBtn { background:#4285F4; color:white; margin-bottom:10px; }
+#logoutBtn { background:#f44336; color:white; float:right; }
+.chat-window { width:250px; min-width:250px; max-height:500px; background:#fff; border:1px solid #ddd; border-radius:5px; margin-right:10px; display:flex; flex-direction:column; position:relative; }
+.chat-header { background:#4285F4; color:white; padding:5px; border-top-left-radius:5px; border-top-right-radius:5px; display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+.chat-messages { flex:1; overflow-y:auto; padding:5px; background:#fafafa; }
+.msg { margin:3px 0; padding:4px 6px; border-radius:5px; background:#e6f0ff; font-size:13px; }
+.chat-input { display:flex; border-top:1px solid #ddd; }
+.chat-input input { flex:1; padding:5px; border:none; outline:none; }
+.chat-input button { padding:5px 8px; background:#4CAF50; color:white; border:none; cursor:pointer; }
+.rightbar { width:25%; padding:15px; box-sizing:border-box; background:#f9f9f9; display:flex; flex-direction:column; }
 </style>
 </head>
 <body>
 
 <div id="container">
-  <!-- 左側好友/群聊 -->
+  <!-- 左側好友群聊 -->
   <div class="sidebar">
+    <button id="loginBtn">使用 Google 登入</button>
+    <button id="logoutBtn" style="display:none;">登出</button>
+    <p>👋 歡迎，<span id="user"></span></p>
     <h3>好友清單</h3>
     <ul id="friendList"></ul>
     <h3>群聊清單</h3>
@@ -42,20 +48,7 @@ button { padding: 8px; margin: 5px 0; border-radius: 5px; border: none; cursor: 
   </div>
 
   <!-- 中間聊天區 -->
-  <div class="chat">
-    <div>
-      <button id="loginBtn">使用 Google 登入</button>
-      <button id="logoutBtn" style="display:none;">登出</button>
-    </div>
-    <p>👋 歡迎，<span id="user"></span></p>
-
-    <div id="messages"></div>
-
-    <div class="input-area">
-      <input id="msgInput" placeholder="輸入訊息...">
-      <button id="sendBtn">送出</button>
-    </div>
-  </div>
+  <div class="chat-area" id="chatArea"></div>
 
   <!-- 右側新增好友 -->
   <div class="rightbar">
@@ -83,123 +76,141 @@ const db = firebase.firestore();
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userSpan = document.getElementById("user");
-const msgDiv = document.getElementById("messages");
-const msgInput = document.getElementById("msgInput");
-const sendBtn = document.getElementById("sendBtn");
 const friendList = document.getElementById("friendList");
 const groupList = document.getElementById("groupList");
 const addFriendEmail = document.getElementById("addFriendEmail");
 const addFriendBtn = document.getElementById("addFriendBtn");
 const createGroupBtn = document.getElementById("createGroupBtn");
 const newGroupName = document.getElementById("newGroupName");
+const chatArea = document.getElementById("chatArea");
 
 let userEmail = "";
-let currentRoom = "group_chat";
-let unsub = null;
+let chatWindows = {}; // 儲存多個聊天視窗 unsub 函數
 
-// 登入/登出
-loginBtn.onclick = async () => {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  await auth.signInWithPopup(provider);
-};
-logoutBtn.onclick = async () => {
+loginBtn.onclick = async ()=>{ await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+logoutBtn.onclick = async ()=>{
   await auth.signOut();
-  loginBtn.style.display = "inline-block";
-  logoutBtn.style.display = "none";
-  msgDiv.innerHTML = "";
-  friendList.innerHTML = "";
-  groupList.innerHTML = "";
-};
+  chatWindows={};
+  chatArea.innerHTML="";
+  friendList.innerHTML="";
+  groupList.innerHTML="";
+}
 
-// 監聽登入狀態
-auth.onAuthStateChanged(user => {
-  if (user) {
+auth.onAuthStateChanged(user=>{
+  if(user){
     userEmail = user.email;
     userSpan.textContent = `${user.displayName} (${userEmail})`;
-    loginBtn.style.display = "none";
-    logoutBtn.style.display = "inline-block";
+    loginBtn.style.display="none";
+    logoutBtn.style.display="inline-block";
     loadFriends();
     loadGroups();
-    joinRoom("group_chat");
   }
 });
 
-// 載入好友列表
-function loadFriends() {
-  friendList.innerHTML = "";
-  db.collection("users").doc(userEmail).collection("friends")
-    .onSnapshot(snap => {
-      friendList.innerHTML = "";
-      snap.forEach(doc => {
-        const li = document.createElement("li");
-        li.textContent = doc.data().email;
-        li.onclick = () => joinRoom([userEmail, doc.data().email].sort().join("_"));
-        friendList.appendChild(li);
-      });
+// 載入好友
+function loadFriends(){
+  db.collection("users").doc(userEmail).collection("friends").onSnapshot(snap=>{
+    friendList.innerHTML="";
+    snap.forEach(doc=>{
+      const li = document.createElement("li");
+      li.textContent = doc.data().email;
+      li.onclick = ()=>openChatWindow([userEmail,doc.data().email].sort().join("_"), doc.data().email);
+      friendList.appendChild(li);
     });
+  });
 }
 
-// 載入群聊列表
-function loadGroups() {
-  groupList.innerHTML = "";
-  db.collection("groups")
-    .onSnapshot(snap => {
-      groupList.innerHTML = "";
-      snap.forEach(doc => {
-        const li = document.createElement("li");
-        li.textContent = doc.id;
-        li.onclick = () => joinRoom(doc.id);
-        groupList.appendChild(li);
-      });
+// 載入群聊
+function loadGroups(){
+  db.collection("groups").onSnapshot(snap=>{
+    groupList.innerHTML="";
+    snap.forEach(doc=>{
+      const li = document.createElement("li");
+      li.textContent = doc.id;
+      li.onclick = ()=>openChatWindow(doc.id, doc.id);
+      groupList.appendChild(li);
     });
+  });
+}
+
+// 新增好友
+addFriendBtn.onclick=async ()=>{
+  const email=addFriendEmail.value.trim();
+  if(!email)return alert("請輸入好友 Gmail");
+  await db.collection("users").doc(userEmail).collection("friends").doc(email).set({email});
+  addFriendEmail.value="";
 }
 
 // 建立群聊
-createGroupBtn.onclick = async () => {
-  const name = newGroupName.value.trim();
-  if (!name) return alert("請輸入群聊名稱");
-  await db.collection("groups").doc(name).set({createdBy: userEmail});
-  newGroupName.value = "";
-};
-
-// 新增好友
-addFriendBtn.onclick = async () => {
-  const email = addFriendEmail.value.trim();
-  if (!email) return alert("請輸入好友 Gmail");
-  await db.collection("users").doc(userEmail).collection("friends").doc(email).set({email});
-  addFriendEmail.value = "";
-};
-
-// 加入聊天室
-function joinRoom(roomId) {
-  if (unsub) unsub();
-  currentRoom = roomId;
-  unsub = db.collection("messages").doc(currentRoom).collection("chats")
-    .orderBy("time")
-    .onSnapshot(snap => {
-      msgDiv.innerHTML = "";
-      snap.forEach(doc => {
-        const d = doc.data();
-        const div = document.createElement("div");
-        div.className = "msg";
-        div.textContent = `${d.from}: ${d.text}`;
-        msgDiv.appendChild(div);
-      });
-      msgDiv.scrollTop = msgDiv.scrollHeight;
-    });
+createGroupBtn.onclick=async ()=>{
+  const name=newGroupName.value.trim();
+  if(!name)return alert("請輸入群聊名稱");
+  await db.collection("groups").doc(name).set({createdBy:userEmail});
+  newGroupName.value="";
 }
 
-// 發送訊息
-sendBtn.onclick = async () => {
-  const text = msgInput.value.trim();
-  if (!text) return;
-  await db.collection("messages").doc(currentRoom).collection("chats").add({
-    from: userEmail,
-    text,
-    time: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  msgInput.value = "";
-};
+// 開啟聊天窗
+function openChatWindow(roomId, title){
+  if(chatWindows[roomId]) return; // 已存在視窗
+  const win = document.createElement("div");
+  win.className="chat-window";
+  win.id="win_"+roomId;
+
+  const header = document.createElement("div");
+  header.className="chat-header";
+  header.innerHTML = `<span>${title}</span><button>X</button>`;
+  win.appendChild(header);
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className="chat-messages";
+  win.appendChild(msgDiv);
+
+  const inputDiv = document.createElement("div");
+  inputDiv.className="chat-input";
+  const input = document.createElement("input");
+  input.placeholder="輸入訊息...";
+  const btn = document.createElement("button");
+  btn.textContent="送出";
+  inputDiv.appendChild(input);
+  inputDiv.appendChild(btn);
+  win.appendChild(inputDiv);
+
+  chatArea.appendChild(win);
+
+  header.querySelector("button").onclick=()=>{
+    if(chatWindows[roomId]) chatWindows[roomId]();
+    chatArea.removeChild(win);
+    delete chatWindows[roomId];
+  }
+
+  // 即時訊息
+  const unsub=db.collection("messages").doc(roomId).collection("chats").orderBy("time")
+    .onSnapshot(snap=>{
+      msgDiv.innerHTML="";
+      snap.forEach(doc=>{
+        const d=doc.data();
+        const div=document.createElement("div");
+        div.className="msg";
+        div.textContent=`${d.from}: ${d.text}`;
+        msgDiv.appendChild(div);
+      });
+      msgDiv.scrollTop=msgDiv.scrollHeight;
+    });
+
+  chatWindows[roomId]=unsub;
+
+  // 送訊息
+  btn.onclick=async ()=>{
+    const text=input.value.trim();
+    if(!text)return;
+    await db.collection("messages").doc(roomId).collection("chats").add({
+      from:userEmail,
+      text,
+      time:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    input.value="";
+  }
+}
 </script>
 </body>
 </html>
