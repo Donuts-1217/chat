@@ -103,22 +103,30 @@ let userEmail = "";
 let chatWindows = {};
 
 // 登入登出
-loginBtn.onclick = async ()=>{ await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-logoutBtn.onclick = async ()=>{
+loginBtn.onclick = async () => {
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch(e) {
+    alert("登入失敗：" + e.message);
+    console.error(e);
+  }
+};
+logoutBtn.onclick = async () => {
   await auth.signOut();
-  chatWindows={};
-  chatArea.innerHTML="";
-  friendList.innerHTML="";
-  groupList.innerHTML="";
-  requestList.innerHTML="";
-}
+  chatWindows = {};
+  chatArea.innerHTML = "";
+  friendList.innerHTML = "";
+  groupList.innerHTML = "";
+  requestList.innerHTML = "";
+};
 
-auth.onAuthStateChanged(async user=>{
+// 使用者狀態變化
+auth.onAuthStateChanged(async user => {
   if(user){
     userEmail = user.email;
     userSpan.textContent = `${user.displayName} (${userEmail})`;
-    loginBtn.style.display="none";
-    logoutBtn.style.display="inline-block";
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
     await db.collection("users").doc(userEmail).set({name:user.displayName,email:userEmail},{merge:true});
     loadFriends();
     loadGroups();
@@ -158,6 +166,7 @@ addFriendBtn.onclick = async ()=>{
   if(!email) return alert("請輸入好友 Gmail");
   if(email === userEmail) return alert("不能加自己");
   try{
+    // 確保對方使用者文件存在
     await db.collection("users").doc(email).set({email},{merge:true});
     await db.collection("users").doc(email).collection("requests").add({
       from: userEmail,
@@ -207,9 +216,9 @@ function loadRequests(){
 }
 
 // 建立群聊
-createGroupBtn.onclick=async ()=>{
-  const name=newGroupName.value.trim();
-  if(!name)return alert("請輸入群聊名稱");
+createGroupBtn.onclick = async ()=>{
+  const name = newGroupName.value.trim();
+  if(!name) return alert("請輸入群聊名稱");
   await db.collection("groups").doc(name).set({createdBy:userEmail});
   newGroupName.value="";
 }
@@ -242,30 +251,30 @@ function openChatWindow(roomId, title){
 
   chatArea.appendChild(win);
 
-  header.querySelector("button").onclick=()=>{
+  header.querySelector("button").onclick = ()=>{
     if(chatWindows[roomId]) chatWindows[roomId]();
     chatArea.removeChild(win);
     delete chatWindows[roomId];
   }
 
-  const unsub=db.collection("messages").doc(roomId).collection("chats").orderBy("time")
+  const unsub = db.collection("messages").doc(roomId).collection("chats").orderBy("time")
     .onSnapshot(snap=>{
       msgDiv.innerHTML="";
       snap.forEach(doc=>{
-        const d=doc.data();
-        const div=document.createElement("div");
+        const d = doc.data();
+        const div = document.createElement("div");
         div.className="msg";
-        div.textContent=`${d.from}: ${d.text}`;
+        div.textContent = `${d.from}: ${d.text}`;
         msgDiv.appendChild(div);
       });
-      msgDiv.scrollTop=msgDiv.scrollHeight;
+      msgDiv.scrollTop = msgDiv.scrollHeight;
     });
 
-  chatWindows[roomId]=unsub;
+  chatWindows[roomId] = unsub;
 
-  btn.onclick=async ()=>{
-    const text=input.value.trim();
-    if(!text)return;
+  btn.onclick = async ()=>{
+    const text = input.value.trim();
+    if(!text) return;
     await db.collection("messages").doc(roomId).collection("chats").add({
       from:userEmail,
       text,
