@@ -34,15 +34,17 @@ button { padding:8px; margin:5px 0; border-radius:6px; border:none; cursor:point
 .chat-input input { flex:1; padding:6px 10px; border:none; outline:none; font-size:13px; }
 .chat-input button { padding:6px 12px; background:#2ecc71; color:white; border:none; cursor:pointer; font-weight:500; border-radius:0 0 10px 0; }
 
-/* 右側新增好友 */
+/* 右側新增好友 + 好友請求 */
 .rightbar { width:25%; padding:15px; background:#f7f9fc; display:flex; flex-direction:column; border-left:1px solid #e0e0e0; }
 .rightbar h3 { margin:10px 0 5px 0; font-size:16px; color:#333; }
 input { padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; margin-bottom:5px; }
+.request-btn { padding:4px 6px; margin-left:4px; border-radius:4px; font-size:12px; }
 </style>
 </head>
 <body>
 
 <div id="container">
+  <!-- 左側好友群聊 -->
   <div class="sidebar">
     <button id="loginBtn">使用 Google 登入</button>
     <button id="logoutBtn" style="display:none;">登出</button>
@@ -55,12 +57,17 @@ input { padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; m
     <button id="createGroupBtn">建立群聊</button>
   </div>
 
+  <!-- 中間聊天區 -->
   <div class="chat-area" id="chatArea"></div>
 
+  <!-- 右側新增好友 + 請求 -->
   <div class="rightbar">
     <h3>新增好友</h3>
     <input id="addFriendEmail" placeholder="輸入 Gmail">
-    <button id="addFriendBtn">新增好友</button>
+    <button id="addFriendBtn">送出好友請求</button>
+
+    <h3>好友請求</h3>
+    <ul id="requestList"></ul>
   </div>
 </div>
 
@@ -90,6 +97,7 @@ const addFriendBtn = document.getElementById("addFriendBtn");
 const createGroupBtn = document.getElementById("createGroupBtn");
 const newGroupName = document.getElementById("newGroupName");
 const chatArea = document.getElementById("chatArea");
+const requestList = document.getElementById("requestList");
 
 let userEmail = "";
 let chatWindows = {};
@@ -102,6 +110,7 @@ logoutBtn.onclick = async ()=>{
   chatArea.innerHTML="";
   friendList.innerHTML="";
   groupList.innerHTML="";
+  requestList.innerHTML="";
 }
 
 auth.onAuthStateChanged(async user=>{
@@ -113,10 +122,11 @@ auth.onAuthStateChanged(async user=>{
     await db.collection("users").doc(userEmail).set({name:user.displayName,email:userEmail},{merge:true});
     loadFriends();
     loadGroups();
+    loadRequests();
   }
 });
 
-// 好友
+// 好友清單
 function loadFriends(){
   db.collection("users").doc(userEmail).collection("friends").onSnapshot(snap=>{
     friendList.innerHTML="";
@@ -129,7 +139,7 @@ function loadFriends(){
   });
 }
 
-// 群聊
+// 群聊清單
 function loadGroups(){
   db.collection("groups").onSnapshot(snap=>{
     groupList.innerHTML="";
@@ -142,18 +152,58 @@ function loadGroups(){
   });
 }
 
-// 新增好友
-addFriendBtn.onclick=async ()=>{
+// 送出好友請求
+addFriendBtn.onclick = async ()=>{
   const email = addFriendEmail.value.trim();
   if(!email) return alert("請輸入好友 Gmail");
+  if(email === userEmail) return alert("不能加自己");
   try{
     await db.collection("users").doc(email).set({email},{merge:true});
-    await db.collection("users").doc(userEmail).collection("friends").doc(email).set({email});
+    await db.collection("users").doc(email).collection("requests").add({
+      from: userEmail,
+      status: "pending",
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    alert("好友請求已送出！");
     addFriendEmail.value="";
-  } catch(err){
-    alert("新增好友失敗："+err.message);
+  }catch(err){
+    alert("送出好友請求失敗："+err.message);
     console.error(err);
   }
+};
+
+// 加載好友請求
+function loadRequests(){
+  db.collection("users").doc(userEmail).collection("requests")
+    .where("status","==","pending")
+    .onSnapshot(snap=>{
+      requestList.innerHTML="";
+      snap.forEach(doc=>{
+        const data = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${data.from} 想加你為好友`;
+
+        const acceptBtn = document.createElement("button");
+        acceptBtn.textContent="同意";
+        acceptBtn.className="request-btn";
+        acceptBtn.onclick = async ()=>{
+          await db.collection("users").doc(userEmail).collection("friends").doc(data.from).set({email:data.from});
+          await db.collection("users").doc(data.from).collection("friends").doc(userEmail).set({email:userEmail});
+          await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"accepted"});
+        };
+
+        const rejectBtn = document.createElement("button");
+        rejectBtn.textContent="拒絕";
+        rejectBtn.className="request-btn";
+        rejectBtn.onclick = async ()=>{
+          await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"rejected"});
+        };
+
+        li.appendChild(acceptBtn);
+        li.appendChild(rejectBtn);
+        requestList.appendChild(li);
+      });
+    });
 }
 
 // 建立群聊
