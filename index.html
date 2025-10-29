@@ -4,80 +4,71 @@
 <meta charset="UTF-8">
 <title>🔥 校園即時聊天室</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <style>
-body { font-family:"Noto Sans TC",sans-serif; margin:0; background:#2f3136; color:white; }
-#loginPage, #chatPage { width:100%; height:100vh; display:flex; justify-content:center; align-items:center; }
-#chatPage { display:none; flex-direction:column; }
-#container { display:flex; width:95%; max-width:1400px; height:80vh; background:#36393f; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.5); }
-.sidebar, .rightbar { width:20%; padding:15px; display:flex; flex-direction:column; background:#2f3136; }
-.sidebar h3, .rightbar h3 { color:#b9bbbe; margin:5px 0; font-size:14px; }
-ul { list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; border-radius:6px; border:1px solid #202225; background:#202225; }
-li { padding:8px; cursor:pointer; border-bottom:1px solid #202225; transition:0.2s; }
-li:hover { background:#4f545c; font-weight:500; }
-button { padding:6px; margin:2px 0; border-radius:6px; border:none; cursor:pointer; font-size:12px; }
-#loginBtn { background:#7289da; color:white; font-weight:500; }
+body { font-family:"Noto Sans TC",sans-serif; margin:0; background:#2f3136; color:#fff; }
+#container { display:flex; width:95%; max-width:1400px; margin:20px auto; height:700px; background:#36393f; border-radius:12px; overflow:hidden; }
+/* 左側好友群組 */
+.sidebar { width:20%; background:#2f3136; padding:10px; display:flex; flex-direction:column; border-right:1px solid #202225; }
+.sidebar h3 { margin:10px 0 5px 0; font-size:14px; color:#b9bbbe; }
+ul { list-style:none; padding:0; margin:0; flex:1; overflow-y:auto; background:#36393f; border-radius:6px; border:1px solid #202225; }
+li { padding:8px; cursor:pointer; border-bottom:1px solid #202225; transition:0.2s; color:#dcddde; }
+li:hover { background:#40444b; font-weight:500; }
+button { padding:6px; margin:4px 0; border-radius:6px; border:none; cursor:pointer; font-size:13px; }
+#loginBtn { background:#4285F4; color:white; font-weight:500; }
 #logoutBtn { background:#f04747; color:white; font-weight:500; }
-.chat-area { flex:1; display:flex; flex-wrap:wrap; gap:10px; padding:10px; overflow-x:auto; background:#36393f; }
-.chat-window { width:300px; min-width:300px; max-height:500px; background:#40444b; border-radius:8px; display:flex; flex-direction:column; overflow:hidden; }
-.chat-header { background:#2f3136; color:white; padding:6px; display:flex; justify-content:space-between; align-items:center; font-size:13px; }
-.chat-messages { flex:1; overflow-y:auto; padding:6px; background:#2f3136; }
-.msg { margin:4px 0; padding:4px 8px; border-radius:6px; background:#5865f2; font-size:13px; word-break:break-word; }
+/* 中間聊天區 */
+.chat-area { flex:1; padding:10px; display:flex; flex-wrap:wrap; gap:12px; overflow-x:auto; background:#2f3136; }
+.chat-window { width:300px; min-width:300px; max-height:600px; background:#36393f; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:flex; flex-direction:column; overflow:hidden; }
+.chat-header { background:#7289da; color:white; padding:8px; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+.chat-header button { background:#f04747; font-size:12px; padding:2px 6px; border-radius:4px; }
+.chat-messages { flex:1; overflow-y:auto; padding:8px; background:#2f3136; }
+.msg { margin:4px 0; padding:6px 10px; border-radius:8px; background:#40444b; font-size:13px; word-break:break-word; }
 .chat-input { display:flex; border-top:1px solid #202225; }
-.chat-input input { flex:1; padding:6px 8px; border:none; outline:none; font-size:13px; background:#40444b; color:white; }
-.chat-input button { padding:6px 10px; background:#43b581; color:white; border-radius:0 0 6px 0; font-weight:500; }
-.rightbar input { padding:6px; border-radius:4px; border:1px solid #202225; font-size:13px; margin-bottom:5px; background:#40444b; color:white; }
-.request-btn { padding:2px 4px; margin-left:4px; border-radius:4px; font-size:11px; }
-#announcementInput { width:100%; margin-top:5px; }
-#announceBtn { width:100%; background:#faa61a; color:black; font-weight:500; margin-top:2px; }
+.chat-input input { flex:1; padding:6px 10px; border:none; outline:none; font-size:13px; background:#40444b; color:white; border-radius:0; }
+.chat-input button { padding:6px 12px; background:#43b581; color:white; border:none; cursor:pointer; font-weight:500; border-radius:0 0 10px 0; }
+/* 右側功能欄 */
+.rightbar { width:20%; padding:10px; background:#2f3136; display:flex; flex-direction:column; border-left:1px solid #202225; }
+.rightbar h3 { margin:10px 0 5px 0; font-size:14px; color:#b9bbbe; }
+input { padding:6px; border-radius:6px; border:1px solid #202225; font-size:13px; margin-bottom:5px; background:#40444b; color:white; }
+.request-btn { padding:4px 6px; margin-left:4px; border-radius:4px; font-size:12px; }
+.admin-btn { padding:4px 6px; margin-top:6px; border-radius:4px; font-size:12px; background:#faa61a; color:#202225; cursor:pointer; }
+.notice { background:#faa61a; color:#202225; padding:4px 6px; border-radius:4px; margin-bottom:4px; font-size:12px; }
 </style>
 </head>
 <body>
 
-<!-- 登入頁 -->
-<div id="loginPage">
-  <button id="loginBtn">使用 Google 登入</button>
-</div>
-
-<!-- 聊天頁 -->
-<div id="chatPage">
-  <div style="width:95%; max-width:1400px; display:flex; justify-content:space-between; align-items:center;">
-    <span>👋 歡迎，<span id="user"></span></span>
-    <button id="logoutBtn">登出</button>
+<div id="container">
+  <!-- 左側 -->
+  <div class="sidebar">
+    <button id="loginBtn">使用 Google 登入</button>
+    <button id="logoutBtn" style="display:none;">登出</button>
+    <p>👋 歡迎，<span id="user"></span></p>
+    <h3>好友清單</h3>
+    <ul id="friendList"></ul>
+    <h3>群組清單</h3>
+    <ul id="groupList"></ul>
+    <input id="newGroupName" placeholder="群組名稱">
+    <button id="createGroupBtn">建立群組</button>
+    <button id="globalNoticeBtn" style="display:none;" class="admin-btn">發送全域公告</button>
   </div>
-  <div id="container">
-    <!-- 左側好友群聊 -->
-    <div class="sidebar">
-      <h3>好友清單</h3>
-      <ul id="friendList"></ul>
-      <input id="addFriendEmail" placeholder="輸入 Gmail">
-      <button id="addFriendBtn">送出好友請求</button>
-      <h3>好友請求</h3>
-      <ul id="requestList"></ul>
-      <h3>群組清單</h3>
-      <ul id="groupList"></ul>
-      <input id="newGroupName" placeholder="群聊名稱">
-      <button id="createGroupBtn">建立群聊</button>
-    </div>
 
-    <!-- 中間聊天區 -->
-    <div class="chat-area" id="chatArea"></div>
+  <!-- 中間聊天區 -->
+  <div class="chat-area" id="chatArea"></div>
 
-    <!-- 右側管理 / 監看 / 公告 -->
-    <div class="rightbar">
-      <div id="monitorArea" style="display:none;">
-        <h3>監看用戶私聊</h3>
-        <select id="monitorSelect"></select>
-        <button id="monitorBtn">開啟監看</button>
-      </div>
-      <div id="announcementArea" style="display:none;">
-        <h3>發佈公告</h3>
-        <input id="announcementInput" placeholder="輸入公告訊息">
-        <button id="announceBtn">發佈</button>
-      </div>
-    </div>
+  <!-- 右側 -->
+  <div class="rightbar">
+    <h3>新增好友</h3>
+    <input id="addFriendEmail" placeholder="輸入 Gmail">
+    <button id="addFriendBtn">送出好友請求</button>
+    <h3>好友請求</h3>
+    <ul id="requestList"></ul>
+    <h3>管理</h3>
+    <div id="adminControls"></div>
   </div>
 </div>
 
@@ -96,71 +87,54 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-const loginPage = document.getElementById("loginPage");
-const chatPage = document.getElementById("chatPage");
+// DOM
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userSpan = document.getElementById("user");
-
 const friendList = document.getElementById("friendList");
-const requestList = document.getElementById("requestList");
+const groupList = document.getElementById("groupList");
 const addFriendEmail = document.getElementById("addFriendEmail");
 const addFriendBtn = document.getElementById("addFriendBtn");
-const groupList = document.getElementById("groupList");
-const newGroupName = document.getElementById("newGroupName");
 const createGroupBtn = document.getElementById("createGroupBtn");
+const newGroupName = document.getElementById("newGroupName");
 const chatArea = document.getElementById("chatArea");
-const monitorArea = document.getElementById("monitorArea");
-const monitorSelect = document.getElementById("monitorSelect");
-const monitorBtn = document.getElementById("monitorBtn");
-const announcementArea = document.getElementById("announcementArea");
-const announcementInput = document.getElementById("announcementInput");
-const announceBtn = document.getElementById("announceBtn");
+const requestList = document.getElementById("requestList");
+const adminControls = document.getElementById("adminControls");
+const globalNoticeBtn = document.getElementById("globalNoticeBtn");
 
 let userEmail = "";
-let userName = "";
-let userRole = "user"; // user / admin / super
 let chatWindows = {};
-let monitorWindow = null;
+let userRole = "user"; // user, admin, super
 
 // 登入登出
-loginBtn.onclick = async () => {
-  const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-};
-logoutBtn.onclick = async () => {
+loginBtn.onclick = async ()=>{ await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+logoutBtn.onclick = async ()=>{
   await auth.signOut();
-  location.reload();
-};
+  chatWindows={};
+  chatArea.innerHTML="";
+  friendList.innerHTML="";
+  groupList.innerHTML="";
+  requestList.innerHTML="";
+  adminControls.innerHTML="";
+}
 
-// 監聽登入狀態
-auth.onAuthStateChanged(async user => {
+auth.onAuthStateChanged(async user=>{
   if(user){
-    loginPage.style.display = "none";
-    chatPage.style.display = "flex";
     userEmail = user.email;
-    userName = user.displayName;
-    userSpan.textContent = `${userName} (${userEmail})`;
-    // 設定使用者
-    await db.collection("users").doc(userEmail).set({name:userName,email:userEmail},{merge:true});
-    // 取得身分
-    const doc = await db.collection("users").doc(userEmail).get();
-    userRole = doc.data()?.role || (userEmail === "chianghansen0302@gmail.com" ? "super" : "user");
-    // 高階管理員功能顯示
-    if(userRole==="super"){
-      monitorArea.style.display="block";
-      announcementArea.style.display="block";
+    userSpan.textContent = `${user.displayName} (${userEmail})`;
+    loginBtn.style.display="none";
+    logoutBtn.style.display="inline-block";
+    // 設定角色
+    if(userEmail==="chianghansen0302@gmail.com") userRole="super";
+    else {
+      const adminDoc = await db.collection("users").doc(userEmail).get();
+      userRole = adminDoc.exists && adminDoc.data().role==="admin" ? "admin" : "user";
     }
-    if(userRole==="admin" || userRole==="super"){
-      createGroupBtn.style.display="inline-block";
-    } else {
-      createGroupBtn.style.display="none";
-    }
-
+    if(userRole!=="user") globalNoticeBtn.style.display="block";
+    await db.collection("users").doc(userEmail).set({name:user.displayName,email:userEmail,role:userRole},{merge:true});
     loadFriends();
     loadGroups();
     loadRequests();
-    loadAnnouncements();
-    if(userRole==="super") loadMonitorList();
   }
 });
 
@@ -184,7 +158,7 @@ function loadGroups(){
     snap.forEach(doc=>{
       const li = document.createElement("li");
       li.textContent = doc.id;
-      li.onclick = ()=>openChatWindow(doc.id, doc.id, true);
+      li.onclick = ()=>openChatWindow(doc.id, doc.id);
       groupList.appendChild(li);
     });
   });
@@ -194,159 +168,129 @@ function loadGroups(){
 addFriendBtn.onclick = async ()=>{
   const email = addFriendEmail.value.trim();
   if(!email) return alert("請輸入好友 Gmail");
-  if(email === userEmail) return alert("不能加自己");
+  if(email===userEmail) return alert("不能加自己");
   try{
     await db.collection("users").doc(email).set({email},{merge:true});
     await db.collection("users").doc(email).collection("requests").add({
-      from:userEmail,
-      status:"pending",
-      timestamp:firebase.firestore.FieldValue.serverTimestamp()
+      from: userEmail,
+      status: "pending",
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
+    alert("好友請求已送出！");
     addFriendEmail.value="";
-  }catch(err){
-    alert("送出好友請求失敗："+err.message);
-  }
+  }catch(err){ alert("送出好友請求失敗："+err.message); console.error(err);}
 };
 
 function loadRequests(){
   db.collection("users").doc(userEmail).collection("requests")
-  .where("status","==","pending")
-  .onSnapshot(snap=>{
-    requestList.innerHTML="";
-    snap.forEach(doc=>{
-      const data = doc.data();
-      const li = document.createElement("li");
-      li.textContent = `${data.from} 想加你為好友`;
-      const acceptBtn = document.createElement("button");
-      acceptBtn.textContent="同意";
-      acceptBtn.className="request-btn";
-      acceptBtn.onclick = async ()=>{
-        await db.collection("users").doc(userEmail).collection("friends").doc(data.from).set({email:data.from});
-        await db.collection("users").doc(data.from).collection("friends").doc(userEmail).set({email:userEmail});
-        await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"accepted"});
-      };
-      const rejectBtn = document.createElement("button");
-      rejectBtn.textContent="拒絕";
-      rejectBtn.className="request-btn";
-      rejectBtn.onclick = async ()=>{
-        await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"rejected"});
-      };
-      li.appendChild(acceptBtn);
-      li.appendChild(rejectBtn);
-      requestList.appendChild(li);
+    .where("status","==","pending")
+    .onSnapshot(snap=>{
+      requestList.innerHTML="";
+      snap.forEach(doc=>{
+        const data = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${data.from} 想加你為好友`;
+        const acceptBtn = document.createElement("button");
+        acceptBtn.textContent="同意";
+        acceptBtn.className="request-btn";
+        acceptBtn.onclick = async ()=>{
+          await db.collection("users").doc(userEmail).collection("friends").doc(data.from).set({email:data.from});
+          await db.collection("users").doc(data.from).collection("friends").doc(userEmail).set({email:userEmail});
+          await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"accepted"});
+        };
+        const rejectBtn = document.createElement("button");
+        rejectBtn.textContent="拒絕";
+        rejectBtn.className="request-btn";
+        rejectBtn.onclick = async ()=>{
+          await db.collection("users").doc(userEmail).collection("requests").doc(doc.id).update({status:"rejected"});
+        };
+        li.appendChild(acceptBtn);
+        li.appendChild(rejectBtn);
+        requestList.appendChild(li);
+      });
     });
-  });
 }
 
-// 建立群聊
-createGroupBtn.onclick = async ()=>{
-  if(userRole==="user") return alert("權限不足");
-  const name = newGroupName.value.trim();
-  if(!name) return;
+// 建立群組
+createGroupBtn.onclick=async ()=>{
+  const name=newGroupName.value.trim();
+  if(!name)return alert("請輸入群組名稱");
+  if(userRole==="user") return alert("沒有權限建立群組");
   await db.collection("groups").doc(name).set({createdBy:userEmail});
   newGroupName.value="";
 }
 
 // 開啟聊天窗
-function openChatWindow(roomId, title, isGroup=false){
+function openChatWindow(roomId,title,isMonitor=false){
   if(chatWindows[roomId]) return;
-  const win = document.createElement("div");
+  const win=document.createElement("div");
   win.className="chat-window";
-  const header = document.createElement("div");
+  win.id="win_"+roomId;
+  const header=document.createElement("div");
   header.className="chat-header";
-  header.innerHTML = `<span>${title}</span><button>X</button>`;
+  header.innerHTML=`<span>${title}</span><button>X</button>`;
   win.appendChild(header);
-  const msgDiv = document.createElement("div");
+  const msgDiv=document.createElement("div");
   msgDiv.className="chat-messages";
   win.appendChild(msgDiv);
-  const inputDiv = document.createElement("div");
+  const inputDiv=document.createElement("div");
   inputDiv.className="chat-input";
-  const input = document.createElement("input");
+  const input=document.createElement("input");
   input.placeholder="輸入訊息...";
-  const btn = document.createElement("button");
+  const btn=document.createElement("button");
   btn.textContent="送出";
-  inputDiv.appendChild(input);
-  inputDiv.appendChild(btn);
+  if(!isMonitor){inputDiv.appendChild(input); inputDiv.appendChild(btn);}
   win.appendChild(inputDiv);
   chatArea.appendChild(win);
-
-  header.querySelector("button").onclick = ()=>{
-    chatArea.removeChild(win);
-    if(chatWindows[roomId]) chatWindows[roomId]();
-    delete chatWindows[roomId];
-  }
-
-  const unsub = db.collection("messages").doc(roomId).collection("chats").orderBy("time")
-    .onSnapshot(snap=>{
-      msgDiv.innerHTML="";
-      snap.forEach(doc=>{
-        const d = doc.data();
-        const div = document.createElement("div");
-        div.className="msg";
-        div.textContent = `${d.from}: ${d.text}`;
-        msgDiv.appendChild(div);
-      });
-      msgDiv.scrollTop = msgDiv.scrollHeight;
-    });
-  chatWindows[roomId] = unsub;
-
-  // Enter 發送 / Shift+Enter 換行
-  input.addEventListener("keydown", e=>{
-    if(e.key==="Enter" && !e.shiftKey){
-      e.preventDefault();
-      btn.click();
-    }
-  });
-
-  btn.onclick = async ()=>{
-    const text = input.value.trim();
-    if(!text) return;
-    await db.collection("messages").doc(roomId).collection("chats").add({
-      from:userEmail,
-      text,
-      time:firebase.firestore.FieldValue.serverTimestamp()
-    });
-    input.value="";
-  }
-}
-
-// 監看功能
-function loadMonitorList(){
-  db.collection("users").get().then(snap=>{
-    monitorSelect.innerHTML="";
+  header.querySelector("button").onclick=()=>{ if(chatWindows[roomId]) chatWindows[roomId](); chatArea.removeChild(win); delete chatWindows[roomId];}
+  const unsub=db.collection("messages").doc(roomId).collection("chats").orderBy("time").onSnapshot(snap=>{
+    msgDiv.innerHTML="";
     snap.forEach(doc=>{
-      if(doc.id !== userEmail){
-        const opt = document.createElement("option");
-        opt.value = doc.id;
-        opt.textContent = doc.id;
-        monitorSelect.appendChild(opt);
-      }
+      const d=doc.data();
+      const div=document.createElement("div");
+      div.className="msg";
+      div.textContent=`${d.from}: ${d.text}`;
+      msgDiv.appendChild(div);
     });
+    msgDiv.scrollTop=msgDiv.scrollHeight;
   });
-}
-
-monitorBtn.onclick = ()=>{
-  const target = monitorSelect.value;
-  if(!target) return;
-  openChatWindow("monitor_"+target, "監看: "+target);
+  chatWindows[roomId]=unsub;
+  btn.onclick=async ()=>{
+    const text=input.value.trim(); if(!text) return;
+    await db.collection("messages").doc(roomId).collection("chats").add({from:userEmail,text,time:firebase.firestore.FieldValue.serverTimestamp()});
+    input.value="";
+  };
 }
 
 // 全域公告
-announceBtn.onclick = async ()=>{
-  if(userRole!=="super") return;
-  const text = announcementInput.value.trim();
-  if(!text) return;
-  await db.collection("announcements").add({text, from:userEmail, time:firebase.firestore.FieldValue.serverTimestamp()});
-  announcementInput.value="";
+globalNoticeBtn.onclick=async ()=>{
+  const notice=prompt("輸入公告內容");
+  if(!notice) return;
+  await db.collection("notices").add({text:notice,from:userEmail,time:firebase.firestore.FieldValue.serverTimestamp()});
 };
 
-function loadAnnouncements(){
-  db.collection("announcements").orderBy("time","desc").onSnapshot(snap=>{
-    snap.forEach(doc=>{
-      alert("公告: "+doc.data().text); // 可換成畫面顯示
-    });
-  });
+// 監看私聊按鈕
+if(userRole==="super"){
+  const btn = document.createElement("button");
+  btn.className="admin-btn";
+  btn.textContent="監看私聊";
+  btn.onclick=()=>{
+    const target = prompt("輸入要監看的用戶Email");
+    if(!target || target===userEmail) return;
+    openChatWindow([userEmail,target].sort().join("_"), `監看: ${target}`, true);
+  };
+  adminControls.appendChild(btn);
 }
+
+// Shift+Enter 換行 Enter 發送
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"){
+    if(e.key==="Enter" && !e.shiftKey){
+      e.preventDefault();
+      e.target.nextSibling?.click();
+    }
+  }
+});
 </script>
 </body>
 </html>
