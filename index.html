@@ -385,10 +385,17 @@
   // setLogLevel('debug'); // 開啟 debug log
 
   /* ================= Global Variables & Environment ================= */
+  // 嘗試從環境變數中取得配置，如果失敗則使用空物件
   const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
   const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
   const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
+  // 檢查配置是否有效 (修正您遇到的錯誤)
+  if (!firebaseConfig || !firebaseConfig.apiKey) {
+    loadingEl.innerHTML = '<p class="text-red-500">錯誤：Firebase 配置遺失。請確認環境變數 `__firebase_config` 已設置且包含 `apiKey`。</p>';
+    throw new Error("Firebase config missing. Please check if __firebase_config is correctly injected.");
+  }
+  
   let ME_EMAIL = '';
   let ME_UID = '';
   let ME_NAME = '';
@@ -399,26 +406,6 @@
 
   const openChats = {}; // {roomId: {unsub: function, element: HTMLElement}}
   const unsubs = []; // Array to store all Firestore unsub functions
-
-  /* ================= DOM Elements ================= */
-  const appEl = document.getElementById('app');
-  const loadingEl = document.getElementById('loading');
-  const chatWindowsEl = document.getElementById('chatWindows');
-  const myEmailEl = document.getElementById('myEmail');
-  const myUserIdEl = document.getElementById('myUserId');
-  const friendsListEl = document.getElementById('friendsList');
-  const usersListEl = document.getElementById('usersList');
-  const groupsListEl = document.getElementById('groupsList'); // New element
-  const logoutBtn = document.getElementById('logoutBtn');
-  const addFriendBtn = document.getElementById('addFriendBtn');
-  const monitorBtn = document.getElementById('monitorBtn');
-  const createGroupBtn = document.getElementById('createGroupBtn'); // New element
-  const roleBadgeEl = document.getElementById('roleBadge');
-
-  const customModal = document.getElementById('customModal');
-  const modalTitle = document.getElementById('modalTitle');
-  const modalBody = document.getElementById('modalBody');
-  const modalFooter = document.getElementById('modalFooter');
 
   /* ================= Custom Modal (replaces alert/confirm) ================= */
 
@@ -481,10 +468,6 @@
   }
 
   /* ================= Firebase Initialization & Auth ================= */
-  if (!firebaseConfig.apiKey) {
-    loadingEl.innerHTML = '<p class="text-red-500">錯誤：Firebase 配置遺失。請確認環境變數已設置。</p>';
-    throw new Error("Firebase config missing.");
-  }
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -1060,8 +1043,10 @@
       '例如: math_club'
     );
     
-    if (!groupName || groupName.length < 3) {
-        if (groupName !== null) showCustomModal('輸入無效', '群組名稱長度至少為 3 個字元。', 'alert');
+    // Validate groupName format: letters, numbers, and underscore only
+    const groupNamePattern = /^[a-zA-Z0-9\_]+$/;
+    if (!groupName || groupName.length < 3 || !groupNamePattern.test(groupName)) {
+        if (groupName !== null) showCustomModal('輸入無效', '群組 ID 必須是英文、數字或底線，且長度至少為 3 個字元。', 'alert');
         return;
     }
     
