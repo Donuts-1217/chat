@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室 v3 (完整版)</title>
+<title>🔥 校園聊天室 v3 (完整功能版)</title>
 
 <!-- Firebase compatibility SDKs for single-file use -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -20,7 +20,7 @@
 *{box-sizing:border-box;font-family:Inter, "Noto Sans TC", "微軟正黑體", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
 body{margin:0;background:linear-gradient(180deg,#071025 0%, #071223 100%);color:#e6eef8; height: 100vh; overflow: hidden;}
 a{color:inherit}
-.center{display:flex;justify-content:center;align-items:center}
+.center{display:flex;justify-content:center;align-items:center} /* 保持這個類別供其他組件使用 */
 
 /* App Layout */
 #app-container{
@@ -228,8 +228,8 @@ a{color:inherit}
 </div>
 
 <!-- Login Screen (Page 1) -->
-<div id="login-screen" class="center fixed inset-0 bg-bg z-[3000] hidden">
-  <div class="login-card bg-panel p-10 rounded-2xl text-center shadow-3xl max-w-md w-11/12">
+<div id="login-screen" class="fixed inset-0 bg-bg z-[3000] flex items-center justify-center hidden">
+  <div class="login-card bg-panel p-10 rounded-2xl text-center shadow-2xl max-w-md w-11/12">
     <h1 class="text-3xl font-extrabold mb-2 text-accent-2">校園聊天室 🔥</h1>
     <p class="text-gray-400 mb-6">請使用 Google 帳號登入以開始與朋友聊天。</p>
     <button id="googleLoginBtn" class="bg-white text-gray-900 px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition duration-200 flex items-center justify-center mx-auto transform hover:scale-[1.02]">
@@ -366,21 +366,36 @@ a{color:inherit}
 // Global Variables for Firebase configuration provided by the environment
 const ADMIN_EMAIL = 'chianghansen0302@gmail.com';
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-// ⚠️ 修正: 確保即使 __firebase_config 遺失或為空，也能安全解析
+
+// -----------------------------------------------------------------------
+// ⚠️ 修正: 將您提供的配置設為優先 fallback
+// -----------------------------------------------------------------------
+const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
+    authDomain: "chat-52c0d.firebaseapp.com",
+    projectId: "chat-52c0d",
+    storageBucket: "chat-52c0d.firebasestorage.app",
+    messagingSenderId: "449329325475",
+    appId: "1:449329325475:web:75f255c4055360dc9e6616",
+    measurementId: "G-8R8648H53V"
+};
+
 const firebaseConfig = (() => {
     try {
         const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
         const config = JSON.parse(configStr);
-        // Ensure apiKey is present
+        // 如果環境配置不完整 (例如缺少 apiKey)，則使用預設配置
         if (!config.apiKey) {
-            console.warn("Firebase config is present but apiKey is missing. This will likely cause initialization failure.");
+            console.warn("Environment Firebase config is missing or invalid. Falling back to default configuration.");
+            return DEFAULT_FIREBASE_CONFIG;
         }
         return config;
     } catch (e) {
-        console.error("Failed to parse __firebase_config:", e);
-        return {};
+        console.error("Failed to parse __firebase_config, falling back to default:", e);
+        return DEFAULT_FIREBASE_CONFIG;
     }
 })();
+// -----------------------------------------------------------------------
 
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -587,7 +602,7 @@ async function handleDeleteFriend(otherEmail) {
     try {
         // 1. Delete friend status from my list
         await db.collection('friends').doc(ME_EMAIL).collection('list').doc(otherEmail).delete();
-        // 2. Delete friend status from their list (Optional, depends on design. Assuming symmetric friendship)
+        // 2. Delete friend status from their list (Assuming symmetric friendship)
         await db.collection('friends').doc(otherEmail).collection('list').doc(ME_EMAIL).delete();
 
         showMessage('刪除成功', `${otherEmail} 已從您的好友列表中刪除。`, 'success');
@@ -953,10 +968,6 @@ function renderDmList(friends) {
 
 createGroupBtn.onclick = async () => {
     // Re-use showMessage for prompt-like behavior
-    const confirmed = await showMessage('建立新群組', '請輸入群組名稱：', 'confirm'); 
-    if (!confirmed) return;
-
-    // A simple text input for prompt replacement
     const groupName = prompt('請輸入群組名稱:');
     
     if (typeof groupName !== 'string' || groupName.trim().length < 2) {
@@ -1150,9 +1161,9 @@ monitorBtn.onclick = async () => {
  * Initializes Firebase, sets up state, and handles authentication.
  */
 function initFirebase(token) {
-    // ⚠️ 修正: 檢查 Firebase 配置是否有效
+    // ⚠️ 檢查 Firebase 配置是否有效
     if (!firebaseConfig || !firebaseConfig.apiKey) {
-        console.error("Firebase Configuration Error: API key or config object is missing.");
+        console.error("Firebase Configuration Error: API key is missing.");
         // 如果配置無效，則顯示錯誤訊息並停止初始化
         showMessage('初始化失敗', 'Firebase 配置資訊缺失 (API Key)。請確認您的執行環境是否正確提供了配置。', 'error');
         // 確保登入畫面可見
@@ -1280,7 +1291,13 @@ function setupSidebarListeners() {
 googleLoginBtn.onclick = async () => {
     // 檢查 Firebase 是否初始化
     if (!auth) {
-        return showMessage('錯誤', 'Firebase 尚未初始化，無法登入。', 'error');
+        // Call initFirebase again in case it failed the first time but config is now available
+        if (!firebaseConfig.apiKey) {
+            return showMessage('錯誤', 'Firebase 尚未初始化，且配置資訊缺失，無法登入。', 'error');
+        }
+        // Attempt re-init
+        initFirebase(initialAuthToken);
+        if (!auth) return; // If re-init failed, stop.
     }
     
     try {
