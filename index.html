@@ -3,107 +3,232 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室 - 登入</title>
+<title>🔥 校園聊天室：登入</title>
+
 <!-- Tailwind CSS for modern styling -->
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  :root {
-    --bg: #0f1724;
-    --panel: #111827;
-    --muted: #9ca3af;
-    --accent: #5865f2; /* Discord Blue */
+  :root{
+    --bg:#0f1724; --panel:#111827; --muted:#9ca3af; --accent:#5865f2; --accent-2:#2ecc71; --danger:#ef4444;
+    --card:#0b1020;
   }
-  body {
-    margin: 0;
-    background: linear-gradient(180deg, #071025 0%, #071223 100%);
-    color: #e6eef8;
-    font-family: 'Inter', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
-  }
-  .center {
+  *{box-sizing:border-box;font-family:'Inter', 'Noto Sans TC', system-ui, -apple-system, sans-serif;}
+  body{
+    margin:0;
+    background:linear-gradient(180deg,#071025 0%, #071223 100%);
+    color:#e6eef8;
+    height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+  }
+  .login-card{
+    background:var(--panel);
+    padding:40px;
+    border-radius:12px;
+    max-width:400px;
+    width:90%;
+    text-align:center;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .logo{
+    font-size:2.5rem;
+    font-weight:900;
+    color:var(--accent);
+    margin-bottom:10px;
+  }
+  .tagline{
+    color:var(--muted);
+    margin-bottom:30px;
+  }
+  .btn-google{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:white;
+    color:#1f2937;
+    padding:12px 20px;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background-color 0.2s, box-shadow 0.2s;
+    border: none;
+    width: 100%;
+  }
+  .btn-google:hover{
+    background:#f3f4f6;
+    box-shadow:0 4px 15px rgba(88, 101, 242, 0.3);
+  }
+  .btn-google svg{
+    margin-right:10px;
+  }
+
+  /* Custom Modal styles */
+  .custom-modal{
+    position:fixed;inset:0;
+    display:none;align-items:center;justify-content:center;
+    background:rgba(2,6,23,0.8);
+    z-index:100;
+    backdrop-filter: blur(5px);
+  }
+  .custom-modal .box{
+    width:92%;max-width:400px;
+    background:linear-gradient(180deg,#1e293b,#0f172a);
+    border-radius:10px;
+    padding:20px;
+    box-shadow:0 12px 40px rgba(2,6,23,0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .btn{
+    padding:8px 12px;
+    border-radius:8px;
+    border:none;
+    background:var(--accent);
+    color:white;
+    cursor:pointer;
+    font-weight: 600;
+    transition: background-color 0.2s, box-shadow 0.2s;
+  }
+  .btn.alt{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.1);
+    color:#e6eef8;
+    padding: 6px 10px;
+    font-size: 13px;
   }
 </style>
 </head>
 <body>
 
-<div id="loginScreen" class="center">
-  <div class="p-8 rounded-xl shadow-2xl bg-gray-900 border border-gray-800 text-center max-w-sm">
-    <h1 class="text-4xl font-extrabold text-[color:var(--accent)] mb-3">🔥 校園即時聊天室</h1>
-    <p class="text-[color:var(--muted)] mb-6 text-sm">請使用您的 Google 帳號登入</p>
-    <!-- 初始禁用按鈕，直到 Firebase 初始化完成 -->
-    <button id="loginBtn" class="w-full py-3 px-4 text-white font-semibold rounded-lg transition duration-200 hover:opacity-90 bg-[color:var(--accent)] shadow-lg shadow-[color:var(--accent)]/30" disabled>
-      使用 Google 帳號登入
-    </button>
-    <p id="errorMsg" class="text-red-400 mt-4 text-sm hidden"></p>
+<div class="login-card">
+  <div class="logo">🔥</div>
+  <h1 class="text-2xl font-bold mb-1">校園聊天室</h1>
+  <p class="tagline">使用您的 Google 帳號登入並開始聊天</p>
+
+  <button id="loginBtn" class="btn-google">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.654,8.397,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.979,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.62-3.344-11.246-7.903l-6.568,5.192C9.526,39.79,16.213,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+    使用 Google 帳號登入
+  </button>
+  <p class="text-xs text-gray-500 mt-4">僅支援使用 Gmail 帳號登入</p>
+</div>
+
+<!-- Custom Modal for Alerts/Confirms -->
+<div id="customModal" class="custom-modal">
+  <div class="box">
+    <h3 id="modalTitle" class="text-xl font-bold mb-3">訊息</h3>
+    <div id="modalBody" class="text-sm text-gray-300 mb-4"></div>
+    <div id="modalFooter" class="flex justify-end gap-2">
+      <!-- Buttons injected here -->
+    </div>
   </div>
 </div>
 
 <script type="module">
+  // Modern Firebase V11 Modular Imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  
-  // 取得 Canvas 提供的全域變數
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  // Firestore import is not strictly needed for login page, but included for completeness if needed later
+  // import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
+
+  /* ================= Global Variables & Configuration ================= */
+  // 檢查並解析環境提供的 Firebase 配置
   const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-  const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
+  // DOM Elements
   const loginBtn = document.getElementById('loginBtn');
-  const errorMsg = document.getElementById('errorMsg');
+  const customModal = document.getElementById('customModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const modalFooter = document.getElementById('modalFooter');
 
-  // Firebase 初始化
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+  /* ================= Custom Modal (replaces alert/confirm) ================= */
 
   /**
-   * 處理初始身份驗證
+   * 顯示自定義模態視窗 (簡化版，只做通知)
+   * @param {string} title 標題
+   * @param {string} message 訊息內容
    */
-  async function authenticate() {
-    if (initialAuthToken) {
-      await signInWithCustomToken(auth, initialAuthToken).catch(e => {
-        console.error("Custom token sign-in failed, falling back to anonymous.", e);
-        signInAnonymously(auth);
-      });
-    } else {
-      await signInAnonymously(auth);
-    }
-    // 確保在嘗試登入之前 Firebase 服務已初始化完成
-    loginBtn.disabled = false;
+  function showCustomModal(title, message) {
+    modalTitle.textContent = title;
+    modalBody.innerHTML = message;
+    modalFooter.innerHTML = '';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn';
+    closeBtn.textContent = '關閉';
+    closeBtn.onclick = () => customModal.style.display = 'none';
+
+    modalFooter.appendChild(closeBtn);
+    customModal.style.display = 'flex';
   }
 
+  // 檢查配置是否完整
+  if (!firebaseConfig || !firebaseConfig.apiKey) {
+    showCustomModal('設定錯誤', 'Firebase 配置遺失或無效，請確認 API 金鑰已設定。');
+    loginBtn.disabled = true;
+    loginBtn.textContent = "設定錯誤 (請見訊息)";
+    throw new Error("Firebase configuration error."); 
+  }
+
+  /* ================= Firebase Initialization ================= */
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
   // 登入按鈕點擊事件
-  loginBtn.onclick = () => {
-    const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider)
-      .then((result) => {
-        // 成功登入，onAuthStateChanged 會處理轉址
-      })
-      .catch((error) => {
-        console.error("Google Sign-In Failed:", error.message);
-        
-        let displayMessage = `登入失敗: ${error.message}`;
-        if (error.code === 'auth/unauthorized-domain') {
-          // 提供具體提示，因為這是外部配置問題
-          displayMessage = "登入失敗：當前網域未被授權。請確保您的 Firebase 專案中已將此應用程式的網域加入授權清單。";
-        }
-        
-        errorMsg.textContent = displayMessage;
-        errorMsg.classList.remove('hidden');
-      });
+  loginBtn.onclick = async () => {
+    try {
+      loginBtn.textContent = '登入中...';
+      loginBtn.disabled = true;
+
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // 檢查是否為 Google 帳號 (有 email)
+      if (user && user.email) {
+        // 成功登入，導向 chat.html
+        window.location.href = 'chat.html';
+      } else {
+        // 如果沒有 email，可能是非預期的登入方式，強制登出並提示
+        showCustomModal('登入失敗', '我們需要一個有效的 Google 帳號（包含 Email）才能繼續。請重新嘗試。');
+        await auth.signOut();
+      }
+
+    } catch (error) {
+      console.error("Login Error:", error);
+      
+      let errorMessage = "登入過程中發生未知錯誤。";
+      
+      // 處理常見的 Firebase 錯誤碼
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "登入視窗被您關閉。";
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        errorMessage = "您已發出另一個登入請求，前一個被取消。";
+      } else if (error.message && error.message.includes('auth/unauthorized-domain')) {
+        errorMessage = "網域未被授權。請確保您的 Firebase 設定已將此網域加入授權清單。";
+      }
+      
+      showCustomModal('登入失敗', errorMessage + '<br><br>請檢查您的網路連線或授權設定。');
+
+    } finally {
+      loginBtn.textContent = '使用 Google 帳號登入';
+      loginBtn.disabled = false;
+    }
   };
 
-  // 身份狀態監聽
+  // 檢查是否已登入 (用於處理從 chat.html 返回的情況)
   onAuthStateChanged(auth, (user) => {
     if (user && user.email) {
-      // 檢查是否為 Google 登入 (有 email)，如果是則轉址到 chat.html
-      // 匿名登入 (initialAuthToken) 不會直接轉址，仍需點擊 Google 登入按鈕
+      // 如果用戶已經登入，直接跳轉
       window.location.href = 'chat.html';
+    } else {
+      // 否則保持在登入頁面
+      loginBtn.disabled = false;
+      loginBtn.textContent = '使用 Google 帳號登入';
     }
   });
-  
-  // 初始化時執行一次匿名登入或自定義 token 登入
-  authenticate();
+
 </script>
 </body>
 </html>
