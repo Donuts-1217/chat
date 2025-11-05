@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室 v3 (模組化修正版)</title>
+<title>🔥 校園聊天室 v4 (按鈕可用性修正版)</title>
 
 <!-- Load Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -618,7 +618,7 @@ async function handleDeleteFriend(otherEmail) {
  * Closes the currently open chat window and clears its state.
  */
 function closeChatWindow() {
-    clearUnsubs();
+    clearUnsubs(); // Ensure all Firestore listeners are stopped
     
     currentRoomId = null;
     currentChatType = null;
@@ -879,6 +879,7 @@ function renderRequestList(requests) {
         listEl.appendChild(item);
     });
 
+    // Event listeners attached to dynamically created buttons
     listEl.querySelectorAll('button').forEach(btn => {
         btn.onclick = (e) => handleFriendRequestAction(e.target.dataset.action, e.target.dataset.email);
     });
@@ -946,6 +947,7 @@ function renderDmList(friends) {
         const item = document.createElement('div');
         item.id = `chat-item-${roomId}`;
         item.className = 'sidebar-item';
+        // Event listener attached to dynamically created DM item
         item.onclick = () => openChatWindow(roomId, `@ ${otherEmail}`, 'dm', otherEmail);
         
         item.innerHTML = `
@@ -1134,7 +1136,8 @@ monitorBtn.onclick = async () => {
         return showMessage('輸入錯誤', '請輸入正確的監看格式: emailA_emailB', 'error');
     }
     
-    if (ME_ROLE !== 'superadmin') {
+    // 檢查全局的 ME_ROLE 變數，它在 onAuthStateChanged 中被設置
+    if (ME_ROLE !== 'superadmin') { 
         return showMessage('權限不足', '僅最高管理員可監看聊天記錄。', 'error');
     }
     
@@ -1142,6 +1145,7 @@ monitorBtn.onclick = async () => {
     const roomId = getDmRoomId(emailA, emailB);
 
     try {
+        // 簡單測試聊天室是否存在
         const messagesRef = collection(db, 'chats', roomId, 'messages');
         const q = query(messagesRef, limit(1)); // Modular call
         const roomTest = await getDocs(q); // Modular call
@@ -1168,10 +1172,11 @@ function initFirebase(token) {
         db = getFirestore(app); // Modular call
         auth = getAuth(app); // Modular call
         setLogLevel('debug'); // Modular call
+        console.log("Firebase initialized successfully. App, DB, Auth objects created.");
 
     } catch (e) {
         console.error("Firebase Init Error: ", e);
-        showMessage('初始化失敗', 'Firebase 服務無法初始化。', 'error');
+        showMessage('初始化失敗', 'Firebase 服務無法初始化。請檢查網頁控制台的錯誤訊息。', 'error');
         return;
     }
     
@@ -1180,7 +1185,7 @@ function initFirebase(token) {
         signInWithCustomToken(auth, token) // Modular call
             .catch(async (error) => {
                 console.error("Custom token sign-in failed, falling back to Google login:", error);
-                signOut(auth); // Modular call: Ensure we are signed out before showing Google login
+                // 登入失敗後不登出，等待 Google 登入按鈕點擊
             });
     }
 
@@ -1190,6 +1195,7 @@ function initFirebase(token) {
             // User is signed in (Google)
             ME_EMAIL = user.email.toLowerCase();
             ME_ID = user.uid;
+            console.log(`User authenticated: ${ME_EMAIL}`);
 
             // 1. Check/Set User Role and Profile
             const userDocRef = doc(db, 'users', ME_EMAIL); // Modular call
@@ -1280,10 +1286,11 @@ function setupSidebarListeners() {
 
 /* ============== Google Login Implementation ============== */
 googleLoginBtn.onclick = async () => {
-    // 檢查 Firebase 是否初始化
+    // 檢查 Firebase Auth 物件是否已定義 (應在 window.onload 期間完成)
     if (!auth) {
-        initFirebase(initialAuthToken);
-        if (!auth) return;
+        showMessage('初始化失敗', 'Firebase 服務尚未準備好或初始化失敗，請刷新頁面重試。', 'error');
+        console.error("Auth object is not defined. Firebase initialization likely failed.");
+        return;
     }
     
     try {
