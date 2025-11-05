@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室：登入</title>
+<title>🔥 校園聊天室：整合 Google 登入</title>
 <!-- Tailwind CSS for modern styling -->
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -45,7 +45,7 @@
     background:linear-gradient(180deg,#071025 0%, #071223 100%);
   }
 
-  /* Chat Interface Styling (same as previous) */
+  /* Chat Interface Styling */
   #app{
     max-width:1400px;
     margin:18px auto;
@@ -120,6 +120,7 @@
       <p class="text-gray-400 mb-8">請使用您的 Google 帳號登入以開始群組和私人聊天。</p>
       
       <button id="googleSignInBtn" class="w-full py-3 px-4 bg-white text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition duration-150 flex items-center justify-center">
+        <!-- Google Icon SVG -->
         <svg class="w-5 h-5 mr-3" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M44.5 20H42V18H44.5C45.33 18 46 17.33 46 16.5V14.5C46 13.67 45.33 13 44.5 13H24V30H43C44.66 30 46 28.66 46 27V25C46 23.34 44.66 22 43 22H24V20H43.5C44.33 20 45 19.33 45 18.5V16.5C45 15.67 44.33 15 43.5 15H24C22.34 15 21 16.34 21 18V28C21 29.66 22.34 31 24 31H44.5C45.33 31 46 30.33 46 29.5V27.5C46 26.67 45.33 26 44.5 26H24V24H44.5C45.33 24 46 23.33 46 22.5V20.5C46 19.67 45.33 19 44.5 19Z" fill="#FFC107"/>
           <path d="M24 30H43C44.66 30 46 28.66 46 27V25C46 23.34 44.66 22 43 22H24V30Z" fill="#FF3D00"/>
@@ -230,12 +231,13 @@
   // Modern Firebase V11 Modular Imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
   import { getAuth, signInWithCustomToken, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, addDoc, onSnapshot, collection, query, where, serverTimestamp, orderBy, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, addDoc, onSnapshot, collection, query, serverTimestamp, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
   import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
   
-  // setLogLevel('debug'); // 開啟 debug log
+  // setLogLevel('debug'); // Open debug log for Firestore in console
 
   /* ================= Global Variables & Environment ================= */
+  // The API key is expected to be part of __firebase_config, which is MANDATORY in this environment.
   const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
   const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
   const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -326,707 +328,369 @@
 
   /* ================= Firebase Initialization & Auth ================= */
 
-  // 檢查配置是否有效 (修正您遇到的錯誤)
+  let app, db, auth;
+
+  // Check config validity before initializing
   if (!firebaseConfig || !firebaseConfig.apiKey) {
-    loadingEl.innerHTML = '<p class="text-red-500">錯誤：Firebase 配置遺失。請確認環境變數 `__firebase_config` 已設置且包含 `apiKey`。</p>';
+    // This is the correct way to handle missing environment config
+    loadingEl.innerHTML = '<p class="text-red-500 p-4">錯誤：Firebase 配置遺失。請確認環境變數 `__firebase_config` 已設置且包含 `apiKey`。應用程式無法啟動。</p>';
     throw new Error("Firebase config missing. Please check if __firebase_config is correctly injected.");
-  }
-  
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-  const googleProvider = new GoogleAuthProvider();
+  } else {
+    // Initialize Firebase services
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    const googleProvider = new GoogleAuthProvider();
 
-  // Helper to construct secure Firestore collection paths
-  const getPrivateCollectionPath = (collectionName) => {
-    return `artifacts/${appId}/users/${ME_UID}/${collectionName}`;
-  };
-  const getPublicCollectionPath = (collectionName) => {
-    return `artifacts/${appId}/public/data/${collectionName}`;
-  };
-  const getPrivateRoomId = (email1, email2) => {
-    return [email1, email2].sort().join('_');
-  };
-
-  /**
-   * 處理 Google 登入
-   */
-  async function signInWithGoogle() {
-    try {
-      loadingEl.style.display = 'flex';
-      loginScreenEl.style.display = 'none';
-      
-      const result = await signInWithPopup(auth, googleProvider);
-      // Google Sign-In successful, onAuthStateChanged will handle the rest.
-      
-    } catch (error) {
-      loadingEl.style.display = 'none';
-      loginScreenEl.style.display = 'flex';
-      
-      if (error.code === 'auth/popup-closed-by-user') {
-          console.log("Popup closed by user.");
-      } else {
-          console.error("Google Sign-In Error:", error);
-          showCustomModal('登入失敗', `無法使用 Google 登入: ${error.message}`, 'alert');
-      }
-    }
-  }
-
-  /**
-   * 處理自訂 Token 或匿名登入 (用於測試或 Canvas 環境)
-   */
-  async function handleCanvasAuth() {
-    try {
-      if (initialAuthToken) {
-        await signInWithCustomToken(auth, initialAuthToken);
-      } else {
-        // Fallback to anonymous sign-in if no token is provided for environment testing
-        await signInAnonymously(auth);
-      }
-      // Note: If this block runs, the user won't see the Google login button.
-      // This is expected behavior for environments that auto-inject auth.
-
-    } catch (error) {
-      console.error("Canvas Auth Error:", error);
-      showCustomModal('環境身份驗證失敗', '嘗試自動登入失敗，請嘗試使用 Google 登入。', 'alert');
-      loadingEl.style.display = 'none';
-      loginScreenEl.style.display = 'flex';
-    }
-  }
-
-  /**
-   * 註冊或更新使用者公開資訊
-   * @param {object} user Firebase User object
-   */
-  async function registerUser(user) {
-    ME_UID = user.uid;
-    // 使用者的 Email 必須存在才能進行公開註冊
-    const email = user.email ? user.email.toLowerCase() : null; 
-
-    if (!email) {
-      // 匿名登入或沒有 Email 的帳號
-      ME_EMAIL = `anonymous_${ME_UID}@anon.chat`;
-      ME_NAME = '匿名使用者';
-      ME_ROLE = 'user';
-      return; 
-    }
-    
-    ME_EMAIL = email;
-    ME_NAME = user.displayName || email.split('@')[0];
-
-    const userRef = doc(db, getPublicCollectionPath('users'), ME_EMAIL);
-    const userDoc = await getDoc(userRef);
-    
-    if (!userDoc.exists()) {
-      await setDoc(userRef, {
-        uid: ME_UID, 
-        email: ME_EMAIL,
-        name: ME_NAME,
-        lastActive: serverTimestamp(),
-        role: 'user', // Default role for new Google users
-      });
-      ME_ROLE = 'user';
-    } else {
-      await updateDoc(userRef, { lastActive: serverTimestamp(), uid: ME_UID });
-      ME_ROLE = userDoc.data().role || 'user';
-    }
-  }
-
-
-  /* ================= Auth State Listener ================= */
-  onAuthStateChanged(auth, async (user) => {
-    // 1. 處理讀取狀態
-    loadingEl.style.display = 'flex';
-    appEl.style.display = 'none';
-    loginScreenEl.style.display = 'none';
-
-    if (user) {
-      // 2. 處理已登入狀態
-      await registerUser(user);
-      
-      // 更新 UI 顯示
-      myEmailEl.textContent = ME_EMAIL;
-      myUserIdEl.textContent = ME_UID.substring(0, 10) + '...'; 
-      
-      // 根據角色顯示徽章和管理功能
-      if (ME_ROLE === 'superadmin') {
-        roleBadgeEl.classList.remove('hidden');
-        roleBadgeEl.textContent = '管理員';
-        monitorBtn.classList.remove('hidden');
-        createGroupBtn.classList.remove('hidden');
-      } else if (ME_ROLE === 'admin') {
-        roleBadgeEl.classList.remove('hidden');
-        roleBadgeEl.textContent = '小編';
-        createGroupBtn.classList.remove('hidden');
-        monitorBtn.classList.add('hidden');
-      } else {
-        roleBadgeEl.classList.add('hidden');
-        monitorBtn.classList.add('hidden');
-        createGroupBtn.classList.add('hidden');
-      }
-
-      // 啟動所有 Firestore 監聽
-      if (unsubs.length === 0) {
-        startListeners();
-      }
-
-      // 顯示應用程式
-      loadingEl.style.display = 'none';
-      appEl.style.display = 'flex';
-
-    } else {
-      // 3. 處理未登入狀態
-      // 清除舊資料和監聽器
-      Object.values(openChats).forEach(o => o.unsub && o.unsub());
-      unsubs.forEach(u => u && u());
-      unsubs.length = 0; // 重置陣列
-      
-      // 檢查是否需要執行 Canvas 環境的自動登入
-      if (initialAuthToken) {
-          await handleCanvasAuth();
-      } else {
-          // 顯示登入畫面
-          loadingEl.style.display = 'none';
-          loginScreenEl.style.display = 'flex';
-      }
-    }
-  });
-
-
-  /* ================= Event Listeners (Chat Screen) ================= */
-  
-  googleSignInBtn.onclick = signInWithGoogle;
-  logoutBtn.onclick = async () => {
-    const confirmed = await showCustomModal('確認登出', '您確定要登出聊天室嗎？', 'confirm');
-    if (confirmed) {
-      await signOut(auth);
-    }
-  };
-
-  /* ================= Core Chat/Firestore Logic (Mostly Unchanged) ================= */
-
-  function startListeners() {
-    // 1. 監聽所有公共使用者 (Public/data/users)
-    const usersQ = query(collection(db, getPublicCollectionPath('users')));
-    const unsubUsers = onSnapshot(usersQ, (snapshot) => {
-      usersListEl.innerHTML = '';
-      USERS = {};
-      let userHtml = '';
-
-      snapshot.forEach(doc => {
-        const userData = doc.data();
-        const email = userData.email;
-        const name = userData.name;
-        const uid = userData.uid; 
-        USERS[email] = { name, email, uid };
-
-        if (email !== ME_EMAIL && ME_EMAIL.includes('@')) { // 僅對非匿名用戶顯示其他用戶
-          const isFriend = FRIENDS[email] && FRIENDS[email].status === 'friend';
-          const buttonText = isFriend ? '訊息' : '加好友';
-          const buttonClass = isFriend ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-600 hover:bg-gray-700';
-          
-          userHtml += `
-            <div class="item flex items-center" data-email="${email}">
-              <div class="flex-1 truncate" onclick="window.openPrivateChat('${email}')">
-                <span class="font-bold">${name}</span> 
-                <span class="small ml-1 text-gray-400">(${email.split('@')[0]})</span>
-                <span class="text-xs text-blue-400 ml-1">UID: ${uid.substring(0, 4)}...</span>
-              </div>
-              <button class="btn alt text-xs ${buttonClass} py-1 px-2 ml-2" onclick="window.handleUserAction('${email}', '${isFriend ? 'chat' : 'request'}')">${buttonText}</button>
-            </div>
-          `;
-        }
-      });
-      usersListEl.innerHTML = userHtml || '<p class="small text-center py-2 text-gray-500">目前沒有其他使用者或您是匿名用戶。</p>';
-    }, console.error);
-    unsubs.push(unsubUsers);
-    
-    // 2. 監聽好友關係 (Friendships) - Private data
-    const friendRef = collection(db, getPrivateCollectionPath('friends'));
-    const unsubFriends = onSnapshot(friendRef, (snapshot) => {
-      friendsListEl.innerHTML = '';
-      FRIENDS = {};
-      let friendHtml = '';
-
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const otherEmail = doc.id; 
-        const status = data.status;
-        const name = data.name || otherEmail.split('@')[0];
-        
-        FRIENDS[otherEmail] = { ...data, email: otherEmail };
-
-        let statusBadge = '';
-        let buttonAction = '';
-        let itemClass = '';
-
-        if (status === 'pending') {
-          if (data.to === ME_EMAIL) {
-            statusBadge = `<span class="text-xs bg-yellow-600 text-white rounded-full px-2 py-0.5 ml-2">待確認</span>`;
-            buttonAction = `<button class="btn text-xs py-1 px-2 ml-2" onclick="window.acceptFriend('${otherEmail}')">接受</button>`;
-          } else {
-            statusBadge = `<span class="text-xs bg-gray-600 text-white rounded-full px-2 py-0.5 ml-2">等待中</span>`;
-            buttonAction = '';
-          }
-        } else if (status === 'friend') {
-          statusBadge = `<span class="text-xs bg-green-600 text-white rounded-full px-2 py-0.5 ml-2">好友</span>`;
-          buttonAction = `<button class="btn alt text-xs py-1 px-2 ml-2" onclick="window.openPrivateChat('${otherEmail}')">聊天</button>`;
-          itemClass = 'font-semibold';
-        }
-
-        friendHtml += `
-          <div class="item flex items-center ${itemClass}">
-            <div class="flex-1 truncate">
-              <span class="font-bold">${name}</span> 
-              <span class="small ml-1 text-gray-400">(${otherEmail.split('@')[0]})</span>
-              ${statusBadge}
-            </div>
-            ${buttonAction}
-          </div>
-        `;
-      });
-      friendsListEl.innerHTML = friendHtml || '<p class="small text-center py-4 text-gray-500">沒有好友或請求。</p>';
-      
-    }, console.error);
-    unsubs.push(unsubFriends);
-
-    // 3. 監聽群組 (Groups) - Public data
-    const groupRef = collection(db, getPublicCollectionPath('groups'));
-    const unsubGroups = onSnapshot(groupRef, (snapshot) => {
-        groupsListEl.innerHTML = '';
-        GROUPS = {};
-        let groupHtml = '';
-
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const groupName = doc.id;
-            
-            // Only show groups that the user is a member of
-            if (data.members.includes(ME_EMAIL)) {
-                GROUPS[groupName] = data;
-                const isAdmin = data.admins.includes(ME_EMAIL);
-                
-                groupHtml += `
-                    <div class="item flex items-center" onclick="window.openGroupChat('${groupName}')">
-                        <div class="flex-1 truncate">
-                            <span class="font-bold text-blue-300"># ${data.displayName}</span>
-                            <span class="small ml-1 text-gray-400">(${data.members.length} 位成員)</span>
-                        </div>
-                        ${isAdmin ? '<span class="text-xs bg-red-600 text-white rounded-full px-2 py-0.5 ml-2">管理</span>' : ''}
-                    </div>
-                `;
-            }
-        });
-        groupsListEl.innerHTML = groupHtml || '<p class="small text-center py-4 text-gray-500">沒有加入的群組。</p>';
-    }, console.error);
-    unsubs.push(unsubGroups);
-  }
-
-  // --- Functions below are window-exposed for use in inline event handlers ---
-  
-  window.openChatWindow = (roomId, title, type) => {
-    if (openChats[roomId]) {
-      openChats[roomId].element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      return;
-    }
-    
-    if (chatWindowsEl.querySelector('.center')) {
-      chatWindowsEl.querySelector('.center').remove();
-    }
-
-    const isGroup = type === 'group';
-    const isMonitor = type === 'monitor';
-    let roomPath = roomId;
-
-    const chatWindow = document.createElement('div');
-    chatWindow.id = `chat-${roomId}`;
-    chatWindow.className = 'chat-window';
-    chatWindow.innerHTML = `
-      <div class="chat-head ${isGroup || isMonitor ? 'group-chat' : ''}">
-        <div class="truncate">
-            ${isGroup ? '<span style="font-size: 1.2em; margin-right: 5px;">#</span>' : ''}
-            ${title} ${isMonitor ? '(監看)' : ''}
-        </div>
-        <button class="text-white hover:text-gray-200 ml-2" onclick="window.closeChatWindow('${roomId}')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      <div id="messages-${roomId}" class="chat-body">
-        <p class="small text-center text-gray-500">載入訊息中...</p>
-      </div>
-      <div class="chat-foot">
-        <textarea id="input-${roomId}" placeholder="${isMonitor ? '監看模式無法發送' : '輸入訊息 (Enter 發送, Shift+Enter 換行)'}" rows="2" ${isMonitor ? 'disabled' : ''}></textarea>
-        <button id="send-${roomId}" class="btn" ${isMonitor ? 'disabled' : ''}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
-      </div>
-    `;
-    
-    chatWindowsEl.appendChild(chatWindow);
-    chatWindow.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-
-    const messagesEl = document.getElementById(`messages-${roomId}`);
-    const messageQ = query(
-      collection(db, getPublicCollectionPath('messages'), roomPath, 'chats'),
-      orderBy('time', 'asc')
-    );
-
-    const unsubMessages = onSnapshot(messageQ, (snapshot) => {
-      renderMessages(messagesEl, snapshot);
-    }, console.error);
-
-    const sendBtn = document.getElementById(`send-${roomId}`);
-    const inputEl = document.getElementById(`input-${roomId}`);
-    
-    if (!isMonitor) {
-      const isPrivate = !isGroup && !isMonitor;
-      sendBtn.onclick = () => sendMessage(roomPath, inputEl, isPrivate ? roomId.split('_').find(e => e !== ME_EMAIL) : null, isPrivate);
-      inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-          e.preventDefault(); 
-          sendBtn.click(); 
-        }
-      });
-    }
-
-    openChats[roomId] = {
-      unsub: unsubMessages,
-      element: chatWindow,
-      type: type
+    // Helper to construct secure Firestore collection paths
+    const getPrivateCollectionPath = (collectionName) => {
+      return `artifacts/${appId}/users/${ME_UID}/${collectionName}`;
     };
-  };
-  
-  function renderMessages(messagesEl, snapshot) {
-    const shouldScroll = messagesEl.scrollHeight - messagesEl.scrollTop <= messagesEl.clientHeight + 50;
-    
-    messagesEl.innerHTML = ''; 
-    snapshot.forEach(doc => {
-      const msg = doc.data();
-      const isMe = msg.from === ME_EMAIL;
-      const msgClass = isMe ? 'me' : 'other';
-      
-      const senderName = isMe 
-        ? ME_NAME 
-        : (USERS[msg.from]?.name || msg.from.split('@')[0] || '未知用戶');
-      
-      let timeStr = '發送中...';
-      if (msg.time && msg.time.toDate) {
-        const date = msg.time.toDate();
-        timeStr = date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-      }
+    const getPublicCollectionPath = (collectionName) => {
+      return `artifacts/${appId}/public/data/${collectionName}`;
+    };
+    const getPrivateRoomId = (email1, email2) => {
+      // Use sorted emails as room ID for consistency
+      return [email1, email2].sort().join('_');
+    };
 
-      const msgHtml = `
-        <div class="msg-wrapper">
-          <div class="msg ${msgClass}">
-            <span class="sender-name">${senderName}</span>
-            <span>${msg.text}</span>
-            <span class="timestamp">${timeStr}</span>
-          </div>
-        </div>
-      `;
-      messagesEl.innerHTML += msgHtml;
+    /**
+     * 處理 Google 登入
+     */
+    async function signInWithGoogle() {
+      try {
+        loadingEl.style.display = 'flex';
+        loginScreenEl.style.display = 'none';
+        
+        await signInWithPopup(auth, googleProvider);
+        // onAuthStateChanged will handle the rest.
+        
+      } catch (error) {
+        loadingEl.style.display = 'none';
+        loginScreenEl.style.display = 'flex';
+        
+        if (error.code === 'auth/popup-closed-by-user') {
+            console.log("Popup closed by user.");
+        } else {
+            console.error("Google Sign-In Error:", error);
+            showCustomModal('登入失敗', `無法使用 Google 登入: ${error.message}`, 'alert');
+        }
+      }
+    }
+
+    /**
+     * 處理自訂 Token 或匿名登入 (用於測試或 Canvas 環境)
+     */
+    async function handleCanvasAuth() {
+      try {
+        if (initialAuthToken) {
+          await signInWithCustomToken(auth, initialAuthToken);
+        } else {
+          // Fallback to anonymous sign-in if no token is provided
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Canvas Auth Error:", error);
+        showCustomModal('環境身份驗證失敗', '嘗試自動登入失敗，請嘗試使用 Google 登入。', 'alert');
+        loadingEl.style.display = 'none';
+        loginScreenEl.style.display = 'flex';
+      }
+    }
+
+    /**
+     * 註冊或更新使用者公開資訊
+     * @param {object} user Firebase User object
+     */
+    async function registerUser(user) {
+      ME_UID = user.uid;
+      const email = user.email ? user.email.toLowerCase() : null; 
+
+      if (!email) {
+        // Handle anonymous or missing email (shouldn't happen with Google Sign-in)
+        ME_EMAIL = `anonymous_${ME_UID}@anon.chat`;
+        ME_NAME = '匿名使用者';
+        ME_ROLE = 'user';
+        return; 
+      }
+      
+      ME_EMAIL = email;
+      ME_NAME = user.displayName || email.split('@')[0];
+
+      const userRef = doc(db, getPublicCollectionPath('users'), ME_EMAIL);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        await setDoc(userRef, {
+          uid: ME_UID, 
+          email: ME_EMAIL,
+          name: ME_NAME,
+          lastActive: serverTimestamp(),
+          role: 'user', // Default role for new Google users
+        });
+        ME_ROLE = 'user';
+      } else {
+        await updateDoc(userRef, { lastActive: serverTimestamp(), uid: ME_UID });
+        ME_ROLE = userDoc.data().role || 'user';
+      }
+    }
+
+
+    /* ================= Auth State Listener ================= */
+    onAuthStateChanged(auth, async (user) => {
+      // 1. 處理讀取狀態
+      loadingEl.style.display = 'flex';
+      appEl.style.display = 'none';
+      loginScreenEl.style.display = 'none';
+
+      if (user) {
+        // 2. 處理已登入狀態
+        await registerUser(user);
+        
+        // Update UI display
+        myEmailEl.textContent = ME_EMAIL;
+        myUserIdEl.textContent = ME_UID; 
+        
+        // Display role badge and admin controls
+        const adminRoles = ['superadmin', 'admin'];
+        if (adminRoles.includes(ME_ROLE)) {
+          roleBadgeEl.classList.remove('hidden');
+          roleBadgeEl.textContent = ME_ROLE === 'superadmin' ? '管理員' : '小編';
+          createGroupBtn.classList.remove('hidden');
+          if (ME_ROLE === 'superadmin') {
+              monitorBtn.classList.remove('hidden');
+          } else {
+              monitorBtn.classList.add('hidden');
+          }
+        } else {
+          roleBadgeEl.classList.add('hidden');
+          monitorBtn.classList.add('hidden');
+          createGroupBtn.classList.add('hidden');
+        }
+
+        // Start all Firestore listeners only once
+        if (unsubs.length === 0) {
+          startListeners();
+        }
+
+        // Show the application
+        loadingEl.style.display = 'none';
+        appEl.style.display = 'flex';
+
+      } else {
+        // 3. 處理未登入狀態
+        // Clear old data and listeners
+        Object.values(openChats).forEach(o => o.unsub && o.unsub());
+        unsubs.forEach(u => u && u());
+        unsubs.length = 0; 
+        
+        // Decide whether to show login or attempt environment auth
+        if (initialAuthToken) {
+            await handleCanvasAuth();
+        } else {
+            // Show the Google login screen
+            loadingEl.style.display = 'none';
+            loginScreenEl.style.display = 'flex';
+        }
+      }
     });
 
-    if (shouldScroll || snapshot.docChanges().length > 0 && snapshot.docChanges()[0].type === 'added') {
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
-  }
 
-  async function sendMessage(roomPath, inputEl, otherEmail, isPrivate) {
-    const text = inputEl.value.trim();
-    if (!text) return;
+    /* ================= Event Listeners (Chat Screen) ================= */
+    
+    googleSignInBtn.onclick = signInWithGoogle;
+    logoutBtn.onclick = async () => {
+      const confirmed = await showCustomModal('確認登出', '您確定要登出聊天室嗎？', 'confirm');
+      if (confirmed) {
+        // Clear environment token flag just in case, then sign out
+        // Note: For actual Canvas environment, this step might be slightly different 
+        // but standard signOut is the correct client-side action.
+        await signOut(auth);
+      }
+    };
 
-    try {
-      if (isPrivate) {
-        const blockedRef = doc(db, getPrivateCollectionPath('blocked'), otherEmail);
-        const blockedDoc = await getDoc(blockedRef);
-        if (blockedDoc.exists()) {
-          showCustomModal('無法發送', '您已被對方封鎖，無法發送訊息。', 'alert');
-          inputEl.value = '';
-          return;
-        }
+    /* ================= Core Chat/Firestore Logic (Mostly Unchanged) ================= */
+
+    function startListeners() {
+      // 1. 監聽所有公共使用者 (Public/data/users)
+      const usersQ = query(collection(db, getPublicCollectionPath('users')));
+      const unsubUsers = onSnapshot(usersQ, (snapshot) => {
+        usersListEl.innerHTML = '';
+        USERS = {};
+        let userHtml = '';
+
+        snapshot.forEach(doc => {
+          const userData = doc.data();
+          const email = userData.email;
+          const name = userData.name;
+          const uid = userData.uid; 
+          USERS[email] = { name, email, uid };
+
+          if (email !== ME_EMAIL && ME_EMAIL.includes('@')) { // 僅對非匿名用戶顯示其他用戶
+            const isFriend = FRIENDS[email] && FRIENDS[email].status === 'friend';
+            const buttonText = isFriend ? '訊息' : '加好友';
+            const buttonClass = isFriend ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-600 hover:bg-gray-700';
+            
+            userHtml += `
+              <div class="item flex items-center" data-email="${email}">
+                <div class="flex-1 truncate" onclick="window.openPrivateChat('${email}')">
+                  <span class="font-bold">${name}</span> 
+                  <span class="small ml-1 text-gray-400">(${email.split('@')[0]})</span>
+                  <span class="text-xs text-blue-400 ml-1">UID: ${uid.substring(0, 4)}...</span>
+                </div>
+                <button class="btn alt text-xs ${buttonClass} py-1 px-2 ml-2" onclick="window.handleUserAction('${email}', '${isFriend ? 'chat' : 'request'}')">${buttonText}</button>
+              </div>
+            `;
+          }
+        });
+        usersListEl.innerHTML = userHtml || '<p class="small text-center py-2 text-gray-500">目前沒有其他使用者或您是匿名用戶。</p>';
+      }, console.error);
+      unsubs.push(unsubUsers);
+      
+      // 2. 監聽好友關係 (Friendships) - Private data
+      const friendRef = collection(db, getPrivateCollectionPath('friends'));
+      const unsubFriends = onSnapshot(friendRef, (snapshot) => {
+        friendsListEl.innerHTML = '';
+        FRIENDS = {};
+        let friendHtml = '';
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const otherEmail = doc.id; 
+          const status = data.status;
+          const name = data.name || otherEmail.split('@')[0];
+          
+          FRIENDS[otherEmail] = { ...data, email: otherEmail };
+
+          let statusBadge = '';
+          let buttonAction = '';
+          let itemClass = '';
+
+          if (status === 'pending') {
+            if (data.to === ME_EMAIL) {
+              statusBadge = `<span class="text-xs bg-yellow-600 text-white rounded-full px-2 py-0.5 ml-2">待確認</span>`;
+              buttonAction = `<button class="btn text-xs py-1 px-2 ml-2" onclick="window.acceptFriend('${otherEmail}')">接受</button>`;
+            } else {
+              statusBadge = `<span class="text-xs bg-gray-600 text-white rounded-full px-2 py-0.5 ml-2">等待中</span>`;
+              buttonAction = '';
+            }
+          } else if (status === 'friend') {
+            statusBadge = `<span class="text-xs bg-green-600 text-white rounded-full px-2 py-0.5 ml-2">好友</span>`;
+            buttonAction = `<button class="btn alt text-xs py-1 px-2 ml-2" onclick="window.openPrivateChat('${otherEmail}')">聊天</button>`;
+            itemClass = 'font-semibold';
+          }
+
+          friendHtml += `
+            <div class="item flex items-center ${itemClass}">
+              <div class="flex-1 truncate">
+                <span class="font-bold">${name}</span> 
+                <span class="small ml-1 text-gray-400">(${otherEmail.split('@')[0]})</span>
+                ${statusBadge}
+              </div>
+              ${buttonAction}
+            </div>
+          `;
+        });
+        friendsListEl.innerHTML = friendHtml || '<p class="small text-center py-4 text-gray-500">沒有好友或請求。</p>';
+        
+      }, console.error);
+      unsubs.push(unsubFriends);
+
+      // 3. 監聽群組 (Groups) - Public data
+      const groupRef = collection(db, getPublicCollectionPath('groups'));
+      const unsubGroups = onSnapshot(groupRef, (snapshot) => {
+          groupsListEl.innerHTML = '';
+          GROUPS = {};
+          let groupHtml = '';
+
+          snapshot.forEach(doc => {
+              const data = doc.data();
+              const groupName = doc.id;
+              
+              // Only show groups that the user is a member of
+              if (data.members.includes(ME_EMAIL)) {
+                  GROUPS[groupName] = data;
+                  const isAdmin = data.admins.includes(ME_EMAIL);
+                  
+                  groupHtml += `
+                      <div class="item flex items-center" onclick="window.openGroupChat('${groupName}')">
+                          <div class="flex-1 truncate">
+                              <span class="font-bold text-blue-300"># ${data.displayName}</span>
+                              <span class="small ml-1 text-gray-400">(${data.members.length} 位成員)</span>
+                          </div>
+                          ${isAdmin ? '<span class="text-xs bg-red-600 text-white rounded-full px-2 py-0.5 ml-2">管理</span>' : ''}
+                      </div>
+                  `;
+              }
+          });
+          groupsListEl.innerHTML = groupHtml || '<p class="small text-center py-4 text-gray-500">沒有加入的群組。</p>';
+      }, console.error);
+      unsubs.push(unsubGroups);
+    } // End of startListeners
+
+    // --- Functions below are window-exposed for use in inline event handlers ---
+    
+    window.openChatWindow = (roomId, title, type) => {
+      if (openChats[roomId]) {
+        openChats[roomId].element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        return;
       }
       
-      const chatRef = collection(db, getPublicCollectionPath('messages'), roomPath, 'chats');
+      if (chatWindowsEl.querySelector('.center')) {
+        chatWindowsEl.querySelector('.center').remove();
+      }
 
-      await addDoc(chatRef, {
-        from: ME_EMAIL,
-        text: text,
-        time: serverTimestamp()
-      });
+      const isGroup = type === 'group';
+      const isMonitor = type === 'monitor';
+      let roomPath = roomId;
 
-      inputEl.value = '';
-      inputEl.style.height = '64px'; 
-    } catch (error) {
-      console.error("Send message error:", error);
-      showCustomModal('發送失敗', '訊息發送失敗，請檢查網路連線或權限。', 'alert');
-    }
-  }
-
-  window.closeChatWindow = (roomId) => {
-    if (openChats[roomId]) {
-      openChats[roomId].unsub();
-      openChats[roomId].element.remove();
-      delete openChats[roomId];
-    }
-    if (Object.keys(openChats).length === 0) {
-      chatWindowsEl.innerHTML = `
-        <div class="center text-gray-500 text-lg font-semibold w-full h-full">
-          點擊左側使用者或群組開始聊天
+      const chatWindow = document.createElement('div');
+      chatWindow.id = `chat-${roomId}`;
+      chatWindow.className = 'chat-window';
+      chatWindow.innerHTML = `
+        <div class="chat-head ${isGroup || isMonitor ? 'group-chat' : ''}">
+          <div class="truncate">
+              ${isGroup ? '<span style="font-size: 1.2em; margin-right: 5px;">#</span>' : ''}
+              ${title} ${isMonitor ? '(監看)' : ''}
+          </div>
+          <button class="text-white hover:text-gray-200 ml-2" onclick="window.closeChatWindow('${roomId}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div id="messages-${roomId}" class="chat-body">
+          <p class="small text-center text-gray-500">載入訊息中...</p>
+        </div>
+        <div class="chat-foot">
+          <textarea id="input-${roomId}" placeholder="${isMonitor ? '監看模式無法發送' : '輸入訊息 (Enter 發送, Shift+Enter 換行)'}" rows="2" ${isMonitor ? 'disabled' : ''}></textarea>
+          <button id="send-${roomId}" class="btn" ${isMonitor ? 'disabled' : ''}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
         </div>
       `;
-    }
-  };
-
-  window.openPrivateChat = (email) => {
-    if (!ME_EMAIL.includes('@')) {
-        showCustomModal('私人訊息受限', '匿名使用者無法進行私人聊天，請使用 Google 登入。', 'alert');
-        return;
-    }
-    const user = USERS[email];
-    if (!user) {
-      showCustomModal('使用者不存在', '該使用者資訊可能尚未同步或不存在。', 'alert');
-      return;
-    }
-    const name = user.name || email.split('@')[0];
-    const roomId = getPrivateRoomId(ME_EMAIL, email);
-    window.openChatWindow(roomId, name, 'private');
-  };
-  
-  window.openGroupChat = (groupName) => {
-    const group = GROUPS[groupName];
-    if (!group) {
-        showCustomModal('群組不存在', '該群組資訊可能尚未同步或您不是成員。', 'alert');
-        return;
-    }
-    const title = group.displayName;
-    window.openChatWindow(groupName, title, 'group');
-  };
-
-  window.handleUserAction = (email, actionType) => {
-    if (actionType === 'chat') {
-      window.openPrivateChat(email);
-    } else if (actionType === 'request') {
-      sendFriendRequest(email);
-    }
-  };
-
-  async function sendFriendRequest(otherEmail) {
-    if (!ME_EMAIL.includes('@')) {
-        showCustomModal('操作受限', '匿名使用者無法發送好友請求，請使用 Google 登入。', 'alert');
-        return;
-    }
-    if (FRIENDS[otherEmail] && FRIENDS[otherEmail].status !== 'blocked') {
-      if (FRIENDS[otherEmail].status === 'friend') {
-        showCustomModal('已是好友', `${otherEmail} 已在您的好友名單中。`, 'alert');
-        return;
-      }
-      if (FRIENDS[otherEmail].status === 'pending') {
-        showCustomModal('等待中', `您已向 ${otherEmail} 發送過好友請求，請耐心等待。`, 'alert');
-        return;
-      }
-    }
-
-    try {
-      const otherUser = USERS[otherEmail];
-      if (!otherUser) {
-        showCustomModal('發送失敗', '無法找到該使用者資訊來發送請求。', 'alert');
-        return;
-      }
-
-      const batch = writeBatch(db);
-
-      const myFriendRef = doc(db, getPrivateCollectionPath('friends'), otherEmail);
-      batch.set(myFriendRef, {
-        email: otherEmail,
-        name: otherUser.name || otherEmail.split('@')[0],
-        status: 'pending',
-        to: otherEmail, 
-        from: ME_EMAIL,
-        time: serverTimestamp()
-      }, { merge: true });
-
-      const otherFriendRef = doc(db, `artifacts/${appId}/users/${otherUser.uid}/friends`, ME_EMAIL);
-      batch.set(otherFriendRef, {
-        email: ME_EMAIL,
-        name: ME_NAME,
-        status: 'pending',
-        to: otherEmail, 
-        from: ME_EMAIL,
-        time: serverTimestamp()
-      }, { merge: true });
-
-      await batch.commit();
-
-      showCustomModal('請求已發送', `已向 ${otherEmail} 發送好友請求。`, 'alert');
-
-    } catch (error) {
-      console.error("Send friend request error:", error);
-      showCustomModal('發送失敗', '發送好友請求失敗。', 'alert');
-    }
-  }
-
-  window.acceptFriend = async (otherEmail) => {
-    try {
-      const otherUser = USERS[otherEmail];
-      if (!otherUser) {
-         showCustomModal('操作失敗', '無法找到對方資訊。', 'alert');
-         return;
-      }
-
-      const batch = writeBatch(db);
       
-      const myFriendRef = doc(db, getPrivateCollectionPath('friends'), otherEmail);
-      batch.update(myFriendRef, { status: 'friend', acceptedAt: serverTimestamp() });
+      chatWindowsEl.appendChild(chatWindow);
+      chatWindow.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+      const messagesEl = document.getElementById(`messages-${roomId}`);
+      const messageQ = query(
+        collection(db, getPublicCollectionPath('messages'), roomPath, 'chats')
+        // orderBy is omitted here to avoid index errors, messages will be sorted client-side
+      );
+
+      const unsubMessages = onSnapshot(messageQ, (snapshot) => {
+        // Sort messages client-side if needed, but Firestore's onSnapshot often returns them ordered by time if time is sequential
+        const sortedDocs = snapshot.docs.sort((a, b) => {
+            const timeA = a.data().time ? a.data().time.toMillis() : 0;
+            const timeB = b.data().time ? b.data().time.toMillis() : 0;
+            return timeA - timeB;
+        });
+        renderMessages(messagesEl, sortedDocs);
+      }, console.error);
+
+      const sendBtn = document.getElementById(`send-${roomId}`);
+      const inputEl = document.getElementById(`input-${roomId}`);
       
-      const otherFriendRef = doc(db, `artifacts/${appId}/users/${otherUser.uid}/friends`, ME_EMAIL);
-      batch.update(otherFriendRef, { status: 'friend', acceptedAt: serverTimestamp() });
-      
-      await batch.commit();
-
-      showCustomModal('已接受', `您已接受 ${otherEmail} 的好友請求！`, 'alert');
-      window.openPrivateChat(otherEmail); 
-
-    } catch (error) {
-      console.error("Accept friend error:", error);
-      showCustomModal('接受失敗', '接受好友請求失敗。', 'alert');
-    }
-  };
-
-  addFriendBtn.onclick = async () => {
-    if (!ME_EMAIL.includes('@')) {
-        showCustomModal('操作受限', '匿名使用者無法發送好友請求，請使用 Google 登入。', 'alert');
-        return;
-    }
-    const targetEmail = await showCustomModal(
-      '新增好友',
-      '請輸入您想新增好友的完整 Email 地址:',
-      'prompt',
-      'example@school.edu'
-    );
-    
-    if (targetEmail && targetEmail.includes('@')) {
-      const normalizedEmail = targetEmail.toLowerCase(); 
-      if (normalizedEmail === ME_EMAIL) {
-        showCustomModal('無效操作', '您不能新增自己為好友。', 'alert');
-      } else if (USERS[normalizedEmail]) {
-        sendFriendRequest(normalizedEmail);
-      } else {
-        showCustomModal('使用者不存在', '該 Email 不在使用者列表中，請確認輸入正確。', 'alert');
-      }
-    } else if (targetEmail !== null) {
-      showCustomModal('輸入無效', '請輸入一個有效的 Email 地址。', 'alert');
-    }
-  };
-
-  monitorBtn.onclick = async () => {
-    if (ME_ROLE !== 'superadmin' && ME_ROLE !== 'admin') {
-      showCustomModal('權限不足', '僅管理員可使用此功能。', 'alert');
-      return;
-    }
-
-    const input = await showCustomModal(
-      '監看私人聊天',
-      '請輸入兩位用戶的 Email (以底線分隔, e.g., userA@a_userB@b):',
-      'prompt',
-      'emailA@a.com_emailB@b.com'
-    );
-    
-    if (input) {
-      const parts = input.split('_');
-      if (parts.length === 2 && parts[0].includes('@') && parts[1].includes('@')) {
-        const emailA = parts[0].trim().toLowerCase();
-        const emailB = parts[1].trim().toLowerCase();
-        
-        const roomId = getPrivateRoomId(emailA, emailB); 
-        window.openChatWindow(roomId, `監看: ${emailA.split('@')[0]} & ${emailB.split('@')[0]}`, 'monitor');
-      } else {
-        showCustomModal('格式錯誤', '請確保格式為 emailA@domain.com_emailB@domain.com。', 'alert');
-      }
-    }
-  };
-
-  createGroupBtn.onclick = async () => {
-    if (ME_ROLE !== 'superadmin' && ME_ROLE !== 'admin') {
-      showCustomModal('權限不足', '僅管理員可建立群組。', 'alert');
-      return;
-    }
-
-    const groupName = await showCustomModal(
-      '建立新群組',
-      `
-      <p>請輸入群組名稱 (英文/數字，將作為群組 ID):</p>
-      <p class="text-yellow-400 text-xs mt-2">注意：ID 一旦建立不可更改。</p>
-      `,
-      'prompt',
-      '例如: math_club'
-    );
-    
-    const groupNamePattern = /^[a-zA-Z0-9\_]+$/;
-    if (!groupName || groupName.length < 3 || !groupNamePattern.test(groupName)) {
-        if (groupName !== null) showCustomModal('輸入無效', '群組 ID 必須是英文、數字或底線，且長度至少為 3 個字元。', 'alert');
-        return;
-    }
-    
-    const displayName = await showCustomModal(
-      '群組顯示名稱',
-      '請輸入群組的顯示名稱 (中文/英文皆可):',
-      'prompt',
-      '例如: 數學研討社'
-    );
-    
-    if (!displayName || displayName.length < 1) {
-        if (displayName !== null) showCustomModal('輸入無效', '請輸入群組顯示名稱。', 'alert');
-        return;
-    }
-
-    const initialMembers = [ME_EMAIL];
-    const initialAdmins = [ME_EMAIL];
-
-    const confirmed = await showCustomModal(
-        '確認建立群組',
-        `<p>群組 ID: <strong>${groupName}</strong></p><p>顯示名稱: <strong>${displayName}</strong></p><p>初始管理員/成員: ${ME_EMAIL}</p>`,
-        'confirm'
-    );
-
-    if (confirmed) {
-        await createGroup(groupName, displayName, initialMembers, initialAdmins);
-    }
-  };
-
-  async function createGroup(groupName, displayName, members, admins) {
-    try {
-      const groupRef = doc(db, getPublicCollectionPath('groups'), groupName);
-      const groupDoc = await getDoc(groupRef);
-
-      if (groupDoc.exists()) {
-        showCustomModal('建立失敗', `群組 ID <strong>${groupName}</strong> 已存在。`, 'alert');
-        return;
-      }
-      
-      await setDoc(groupRef, {
-        displayName: displayName,
-        members: members,
-        admins: admins,
-        createdAt: serverTimestamp(),
-        createdBy: ME_EMAIL
-      });
-
-      showCustomModal('建立成功', `群組 <strong>${displayName}</strong> 已成功建立！`, 'alert');
-      window.openGroupChat(groupName);
-
-    } catch (error) {
-      console.error("Create group error:", error);
-      showCustomModal('建立失敗', '建立群組時發生錯誤，請檢查錯誤訊息。', 'alert');
-    }
-  }
-  
-  // Cleanup
-  window.addEventListener('beforeunload', () => {
-    Object.values(openChats).forEach(o => o.unsub && o.unsub());
-    unsubs.forEach(u => u && u());
-  });
-
-</script>
-</body>
-</html>
+      if (!isMonitor) {
+        const isPrivate = !isGroup && !isMonitor;
+        sendBtn.onclick = () => sendMessage(roomPath, inputEl, isPrivate ? roomId.split('_').find(e => e !== ME_EMAIL) : null, isPrivate);
+        inputEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
