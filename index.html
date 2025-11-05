@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室 v4 (按鈕可用性修正版)</title>
+<title>🔥 校園聊天室 v5 (彈窗穩定修正版)</title>
 
 <!-- Load Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -397,7 +397,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
     authDomain: "chat-52c0d.firebaseapp.com",
     projectId: "chat-52c0d",
-    storageBucket: "chat-52c0d.firebasestorage.app",
+    storageBucket: "chat-52c0d.firebase-storage.app",
     messagingSenderId: "449329325475",
     appId: "1:449329325475:web:75f255c4055360dc9e6616",
     measurementId: "G-8R8648H53V"
@@ -416,6 +416,7 @@ const unsubs = []; // Array to store firestore unsubscribe functions
 let currentRoomId = null;
 let currentChatType = null; // 'dm', 'group', or 'monitor'
 let currentOtherEmail = null;
+let currentMessageResolve = null; // Used for single-instance message box resolution
 
 // DOM Elements (保持不變)
 const loginScreen = document.getElementById('login-screen');
@@ -457,14 +458,17 @@ const removeMemberBtn = document.getElementById('removeMemberBtn');
 
 /**
  * Custom function to display error/success messages instead of alert() and confirm().
+ * NOTE: The button click handlers are set up ONCE in setupMessageBoxHandlers().
  */
 function showMessage(title, body, type = 'info') {
     return new Promise(resolve => {
         const box = document.getElementById('message-box');
         const header = document.getElementById('message-box-header');
         const bodyEl = document.getElementById('message-box-body');
-        const okBtn = document.getElementById('message-box-ok-btn');
         const cancelBtn = document.getElementById('message-box-cancel-btn');
+        const okBtn = document.getElementById('message-box-ok-btn');
+        
+        currentMessageResolve = resolve; // Store the resolve function for the permanent handlers
 
         header.textContent = title;
         bodyEl.textContent = body;
@@ -472,20 +476,38 @@ function showMessage(title, body, type = 'info') {
         // Apply color based on type
         header.style.color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--accent-2)' : 'var(--accent)';
 
-        // Setup buttons and visibility
+        // Setup button visibility only (handlers are permanent)
         if (type === 'confirm') {
             cancelBtn.classList.remove('hidden');
             okBtn.textContent = '確定';
-            okBtn.onclick = () => { box.classList.add('hidden'); resolve(true); };
-            cancelBtn.onclick = () => { box.classList.add('hidden'); resolve(false); };
         } else {
             cancelBtn.classList.add('hidden');
             okBtn.textContent = '確定';
-            okBtn.onclick = () => { box.classList.add('hidden'); resolve(true); };
         }
 
         box.classList.remove('hidden');
     });
+}
+
+/**
+ * Sets up permanent click handlers for the message box buttons.
+ */
+function setupMessageBoxHandlers() {
+    const box = document.getElementById('message-box');
+    const okBtn = document.getElementById('message-box-ok-btn');
+    const cancelBtn = document.getElementById('message-box-cancel-btn');
+
+    const handleResolve = (result) => {
+        if (currentMessageResolve) {
+            box.classList.add('hidden');
+            currentMessageResolve(result);
+            currentMessageResolve = null; // Clear the resolver after use
+        }
+    };
+
+    // Attach permanent listeners
+    okBtn.onclick = () => handleResolve(true);
+    cancelBtn.onclick = () => handleResolve(false);
 }
 
 /**
@@ -729,6 +751,7 @@ function setupChatInput(otherEmail, roomId, type) {
         ta.disabled = false;
         send.disabled = false;
         chatInputContainer.style.opacity = 1.0;
+        blockInfo.classList.add('hidden'); // Ensure block info is hidden by default
         ta.placeholder = '輸入訊息... (Enter 送出, Shift+Enter 換行)';
     }
 
@@ -1136,7 +1159,7 @@ monitorBtn.onclick = async () => {
         return showMessage('輸入錯誤', '請輸入正確的監看格式: emailA_emailB', 'error');
     }
     
-    // 檢查全局的 ME_ROLE 變數，它在 onAuthStateChanged 中被設置
+    // 檢查全局的 ME_ROLE 變數
     if (ME_ROLE !== 'superadmin') { 
         return showMessage('權限不足', '僅最高管理員可監看聊天記錄。', 'error');
     }
@@ -1317,6 +1340,7 @@ logoutBtn.onclick = () => {
 
 /* ============== initial: start firebase ============== */
 window.onload = function() {
+    setupMessageBoxHandlers(); // <--- 修正: 單次註冊按鈕事件
     initFirebase(initialAuthToken);
 }
 </script>
