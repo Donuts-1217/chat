@@ -3,12 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室 v3 (完整功能版)</title>
+<title>🔥 校園聊天室 v3 (模組化修正版)</title>
 
-<!-- Firebase compatibility SDKs for single-file use -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <!-- Load Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 
@@ -363,13 +359,40 @@ a{color:inherit}
 </div>
 
 <script type="module">
+// 導入 Firebase 模組化 SDK (v11.6.1)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { 
+    getAuth, 
+    signInWithCustomToken, 
+    onAuthStateChanged, 
+    signOut, 
+    GoogleAuthProvider, 
+    signInWithPopup 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc, 
+    getDoc, 
+    setDoc, 
+    addDoc, 
+    deleteDoc, 
+    onSnapshot, 
+    collection, 
+    query, 
+    where, 
+    orderBy, 
+    limit,
+    serverTimestamp,
+    increment,
+    setLogLevel
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+
 // Global Variables for Firebase configuration provided by the environment
 const ADMIN_EMAIL = 'chianghansen0302@gmail.com';
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// -----------------------------------------------------------------------
-// ⚠️ 修正: 使用用戶提供的明確 Firebase 配置
-// -----------------------------------------------------------------------
+// Firebase Configuration (從用戶提供的配置中複製)
 const firebaseConfig = {
     apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
     authDomain: "chat-52c0d.firebaseapp.com",
@@ -379,7 +402,6 @@ const firebaseConfig = {
     appId: "1:449329325475:web:75f255c4055360dc9e6616",
     measurementId: "G-8R8648H53V"
 };
-// -----------------------------------------------------------------------
 
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -395,7 +417,7 @@ let currentRoomId = null;
 let currentChatType = null; // 'dm', 'group', or 'monitor'
 let currentOtherEmail = null;
 
-// DOM Elements
+// DOM Elements (保持不變)
 const loginScreen = document.getElementById('login-screen');
 const appContainer = document.getElementById('app-container');
 const googleLoginBtn = document.getElementById('googleLoginBtn');
@@ -435,10 +457,6 @@ const removeMemberBtn = document.getElementById('removeMemberBtn');
 
 /**
  * Custom function to display error/success messages instead of alert() and confirm().
- * @param {string} title - The title of the message box.
- * @param {string} body - The content of the message.
- * @param {string} type - 'success', 'error', 'info', or 'confirm'.
- * @returns {Promise<boolean>} Resolves with true for OK, false for Cancel (only for 'confirm').
  */
 function showMessage(title, body, type = 'info') {
     return new Promise(resolve => {
@@ -472,9 +490,6 @@ function showMessage(title, body, type = 'info') {
 
 /**
  * Helper to generate a consistent DM room ID regardless of user order.
- * @param {string} emailA
- * @param {string} emailB
- * @returns {string} The canonical room ID (email_sorted_A + "_" + email_sorted_B)
  */
 function getDmRoomId(emailA, emailB) {
     const emails = [emailA.toLowerCase(), emailB.toLowerCase()].sort();
@@ -491,7 +506,6 @@ function createMessageHtml(message) {
     const timestamp = message.time ? new Date(message.time.seconds * 1000).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '發送中...';
     
     // Check if I am blocked (Only relevant for DM chats, but keep the check generic)
-    // The actual block check for sending happens in setupChatInput
     const isBlockedMessage = message.isBlocked === true; 
     
     return `
@@ -553,7 +567,6 @@ function renderDmActions(otherEmail) {
  */
 function renderGroupActions() {
     chatActions.innerHTML = ''; // Groups don't need Block/Delete Friend buttons here
-    // Toggling the group member list is handled in openChatWindow
 }
 
 async function handleBlockUser(otherEmail) {
@@ -562,15 +575,14 @@ async function handleBlockUser(otherEmail) {
 
     try {
         // Create a document in my block list
-        await db.collection('blocks').doc(ME_EMAIL).collection('locked').doc(otherEmail).set({
-            blockedAt: firebase.firestore.FieldValue.serverTimestamp()
+        const blockDocRef = doc(collection(db, 'blocks', ME_EMAIL, 'locked'), otherEmail);
+        await setDoc(blockDocRef, {
+            blockedAt: serverTimestamp() // Modular call
         });
         showMessage('封鎖成功', `${otherEmail} 已被您封鎖。`, 'success');
         
-        // Optional: Close the chat window and refresh the DM list
         if (currentOtherEmail === otherEmail) {
             closeChatWindow();
-            // User will reappear in DM list but chat is blocked.
         }
 
     } catch (e) {
@@ -585,13 +597,12 @@ async function handleDeleteFriend(otherEmail) {
 
     try {
         // 1. Delete friend status from my list
-        await db.collection('friends').doc(ME_EMAIL).collection('list').doc(otherEmail).delete();
+        await deleteDoc(doc(collection(db, 'friends', ME_EMAIL, 'list'), otherEmail));
         // 2. Delete friend status from their list (Assuming symmetric friendship)
-        await db.collection('friends').doc(otherEmail).collection('list').doc(ME_EMAIL).delete();
+        await deleteDoc(doc(collection(db, 'friends', otherEmail, 'list'), ME_EMAIL));
 
         showMessage('刪除成功', `${otherEmail} 已從您的好友列表中刪除。`, 'success');
         
-        // Close the chat window and refresh the DM list
         if (currentOtherEmail === otherEmail) {
             closeChatWindow();
         }
@@ -607,10 +618,8 @@ async function handleDeleteFriend(otherEmail) {
  * Closes the currently open chat window and clears its state.
  */
 function closeChatWindow() {
-    // Unsubscribe previous listener
     clearUnsubs();
     
-    // Reset state
     currentRoomId = null;
     currentChatType = null;
     currentOtherEmail = null;
@@ -628,10 +637,6 @@ function closeChatWindow() {
 
 /**
  * Opens a specific chat window and sets up the listener.
- * @param {string} id - RoomId or GroupId.
- * @param {string} title - The title to display in the chat header.
- * @param {'dm' | 'group' | 'monitor'} type - Type of chat.
- * @param {string | null} otherEmail - The email of the other user (only for DM/Monitor).
  */
 function openChatWindow(id, title, type, otherEmail = null) {
     closeChatWindow(); // Close existing chat first
@@ -669,11 +674,11 @@ function openChatWindow(id, title, type, otherEmail = null) {
     setupChatInput(otherEmail, id, type);
 
     // 6. Setup new listener for the chat
-    const chatsRef = db.collection('chats').doc(id).collection('messages');
-    let q = chatsRef.orderBy('time').limit(type === 'monitor' ? 100 : 50); // Monitor limit 100
+    const chatsRef = collection(db, 'chats', id, 'messages');
+    let q = query(chatsRef, orderBy('time'), limit(type === 'monitor' ? 100 : 50)); // Modular call
 
-    const unsub = q.onSnapshot(snapshot => {
-        messageList.innerHTML = ''; // Clear and re-render all for simplicity on large changes
+    const unsub = onSnapshot(q, snapshot => { // Modular call
+        messageList.innerHTML = '';
         const fragment = document.createDocumentFragment();
         
         snapshot.docs.forEach(doc => {
@@ -731,18 +736,17 @@ function setupChatInput(otherEmail, roomId, type) {
         const text = ta.value.trim();
         if (!text) return;
 
-        let collectionName = type === 'dm' ? 'messages' : 'messages'; // Using 'messages' for both DM and Group chats
         let payload = {
             text,
-            time: firebase.firestore.FieldValue.serverTimestamp(),
+            time: serverTimestamp(), // Modular call
         };
 
         if (type === 'dm') {
             // DM: Check if I am blocked by the other user
-            const blockDocRef = db.collection('blocks').doc(otherEmail).collection('locked').doc(ME_EMAIL);
-            const iAmBlocked = await blockDocRef.get();
+            const blockDocRef = doc(collection(db, 'blocks', otherEmail, 'locked'), ME_EMAIL); // Modular call
+            const iAmBlocked = await getDoc(blockDocRef); // Modular call
             
-            if (iAmBlocked.exists) {
+            if (iAmBlocked.exists()) { // Modular call: use exists()
                 blockInfo.classList.remove('hidden');
                 showMessage('無法發送', '您已被對方封鎖，無法發送訊息。', 'error');
                 return;
@@ -753,8 +757,9 @@ function setupChatInput(otherEmail, roomId, type) {
 
         } else if (type === 'group') {
             // Group: Check if I am a member
-            const memberDoc = await db.collection('groups').doc(roomId).collection('members').doc(ME_EMAIL).get();
-            if (!memberDoc.exists) {
+            const memberDocRef = doc(collection(db, 'groups', roomId, 'members'), ME_EMAIL);
+            const memberDoc = await getDoc(memberDocRef); // Modular call
+            if (!memberDoc.exists()) {
                 showMessage('錯誤', '您不是此群組的成員，無法發送訊息。', 'error');
                 return;
             }
@@ -763,16 +768,20 @@ function setupChatInput(otherEmail, roomId, type) {
 
         try {
             // Send the message
-            await db.collection('chats').doc(roomId).collection('messages').add(payload);
+            const chatColRef = collection(db, 'chats', roomId, 'messages');
+            await addDoc(chatColRef, payload); // Modular call
             
             // Update lastChat time for DM list/Group list sorting
             if (type === 'dm') {
-                // Update both users' DM list (friend status required)
-                await db.collection('friends').doc(ME_EMAIL).collection('list').doc(otherEmail).set({ lastChat: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-                await db.collection('friends').doc(otherEmail).collection('list').doc(ME_EMAIL).set({ lastChat: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                const myFriendRef = doc(collection(db, 'friends', ME_EMAIL, 'list'), otherEmail);
+                const otherFriendRef = doc(collection(db, 'friends', otherEmail, 'list'), ME_EMAIL);
+                
+                await setDoc(myFriendRef, { lastChat: serverTimestamp() }, { merge: true }); // Modular call
+                await setDoc(otherFriendRef, { lastChat: serverTimestamp() }, { merge: true }); // Modular call
             } else if (type === 'group') {
                 // Update the group last activity time
-                await db.collection('groups').doc(roomId).set({ lastChat: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                const groupRef = doc(db, 'groups', roomId);
+                await setDoc(groupRef, { lastChat: serverTimestamp() }, { merge: true }); // Modular call
             }
 
             ta.value = '';
@@ -807,27 +816,29 @@ sendRequestBtn.onclick = async () => {
 
     try {
         // 1. Check if the target user exists (optional but good practice)
-        const targetUserDoc = await db.collection('users').doc(targetEmail).get();
-        if (!targetUserDoc.exists) {
+        const targetUserDoc = await getDoc(doc(db, 'users', targetEmail)); // Modular call
+        if (!targetUserDoc.exists()) {
             return showMessage('錯誤', `用戶 ${targetEmail} 不存在或尚未註冊。`, 'error');
         }
 
         // 2. Check if already friends
-        const friendDoc = await db.collection('friends').doc(ME_EMAIL).collection('list').doc(targetEmail).get();
-        if (friendDoc.exists) {
+        const friendDoc = await getDoc(doc(collection(db, 'friends', ME_EMAIL, 'list'), targetEmail)); // Modular call
+        if (friendDoc.exists()) {
             return showMessage('提示', `${targetEmail} 已經是您的好友。`, 'info');
         }
 
         // 3. Send Request: Create a document in the target's incoming requests
-        await db.collection('friends').doc(targetEmail).collection('requests').doc(ME_EMAIL).set({
+        const targetRequestRef = doc(collection(db, 'friends', targetEmail, 'requests'), ME_EMAIL);
+        await setDoc(targetRequestRef, {
             senderEmail: ME_EMAIL,
-            sentAt: firebase.firestore.FieldValue.serverTimestamp()
+            sentAt: serverTimestamp() // Modular call
         });
         
         // 4. Record outgoing request (for tracking)
-        await db.collection('friends').doc(ME_EMAIL).collection('sent_requests').doc(targetEmail).set({
+        const mySentRef = doc(collection(db, 'friends', ME_EMAIL, 'sent_requests'), targetEmail);
+        await setDoc(mySentRef, {
             recipientEmail: targetEmail,
-            sentAt: firebase.firestore.FieldValue.serverTimestamp()
+            sentAt: serverTimestamp() // Modular call
         });
 
         showMessage('請求已發送', `好友請求已成功發送給 ${targetEmail}。`, 'success');
@@ -877,36 +888,36 @@ function renderRequestList(requests) {
  * Handles accepting or rejecting a friend request.
  */
 async function handleFriendRequestAction(action, senderEmail) {
-    const requestDocRef = db.collection('friends').doc(ME_EMAIL).collection('requests').doc(senderEmail);
-    const myFriendListRef = db.collection('friends').doc(ME_EMAIL).collection('list').doc(senderEmail);
-    const senderFriendListRef = db.collection('friends').doc(senderEmail).collection('list').doc(ME_EMAIL);
-    const senderSentRequestRef = db.collection('friends').doc(senderEmail).collection('sent_requests').doc(ME_EMAIL);
+    const requestDocRef = doc(collection(db, 'friends', ME_EMAIL, 'requests'), senderEmail);
+    const myFriendListRef = doc(collection(db, 'friends', ME_EMAIL, 'list'), senderEmail);
+    const senderFriendListRef = doc(collection(db, 'friends', senderEmail, 'list'), ME_EMAIL);
+    const senderSentRequestRef = doc(collection(db, 'friends', senderEmail, 'sent_requests'), ME_EMAIL);
 
     try {
         if (action === 'accept') {
             // 1. Add to my friend list
-            await myFriendListRef.set({
+            await setDoc(myFriendListRef, {
                 email: senderEmail,
-                addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                addedAt: serverTimestamp(), // Modular call
                 roomId: getDmRoomId(ME_EMAIL, senderEmail)
             });
             // 2. Add to sender's friend list (symmetric friendship)
-            await senderFriendListRef.set({
+            await setDoc(senderFriendListRef, {
                 email: ME_EMAIL,
-                addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                addedAt: serverTimestamp(), // Modular call
                 roomId: getDmRoomId(ME_EMAIL, senderEmail)
             });
             // 3. Delete the request
-            await requestDocRef.delete();
+            await deleteDoc(requestDocRef); // Modular call
             // 4. Delete the sender's outgoing request
-            await senderSentRequestRef.delete();
+            await deleteDoc(senderSentRequestRef); // Modular call
 
             showMessage('好友成功', `${senderEmail} 已成為您的好友！`, 'success');
         } else if (action === 'reject') {
             // 1. Delete the request
-            await requestDocRef.delete();
+            await deleteDoc(requestDocRef); // Modular call
             // 2. Delete the sender's outgoing request
-            await senderSentRequestRef.delete();
+            await deleteDoc(senderSentRequestRef); // Modular call
             showMessage('請求已拒絕', `已拒絕 ${senderEmail} 的好友請求。`, 'info');
         }
     } catch (e) {
@@ -951,7 +962,6 @@ function renderDmList(friends) {
 /* ==================== Group System Logic ==================== */
 
 createGroupBtn.onclick = async () => {
-    // Re-use showMessage for prompt-like behavior
     const groupName = prompt('請輸入群組名稱:');
     
     if (typeof groupName !== 'string' || groupName.trim().length < 2) {
@@ -959,23 +969,25 @@ createGroupBtn.onclick = async () => {
     }
 
     try {
-        const newGroupRef = await db.collection('groups').add({
+        const groupsColRef = collection(db, 'groups');
+        const newGroupRef = await addDoc(groupsColRef, { // Modular call
             name: groupName.trim(),
             admin: ME_EMAIL,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastChat: firebase.firestore.FieldValue.serverTimestamp(),
+            createdAt: serverTimestamp(), // Modular call
+            lastChat: serverTimestamp(), // Modular call
             memberCount: 1
         });
 
         // Add admin as the first member
-        await db.collection('groups').doc(newGroupRef.id).collection('members').doc(ME_EMAIL).set({
+        const memberDocRef = doc(collection(db, 'groups', newGroupRef.id, 'members'), ME_EMAIL);
+        await setDoc(memberDocRef, { // Modular call
             email: ME_EMAIL,
             role: 'admin',
-            joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+            joinedAt: serverTimestamp() // Modular call
         });
         
         showMessage('建立成功', `群組 "${groupName}" 已建立！`, 'success');
-        openChatWindow(newGroupRef.id, `# ${groupName.trim()}`, 'group'); // Open the new group chat
+        openChatWindow(newGroupRef.id, `# ${groupName.trim()}`, 'group');
 
     } catch (e) {
         showMessage('建立失敗', '建立群組時發生錯誤。', 'error');
@@ -1024,17 +1036,19 @@ function setupGroupMemberList(groupId) {
     groupManagementAdmin.classList.add('hidden'); // Hide admin controls by default
 
     // Check if I am the admin for management controls
-    db.collection('groups').doc(groupId).collection('members').doc(ME_EMAIL).get()
-        .then(doc => {
-            const memberRole = doc.exists && doc.data().role === 'admin';
+    const myMemberDocRef = doc(collection(db, 'groups', groupId, 'members'), ME_EMAIL);
+    getDoc(myMemberDocRef) // Modular call
+        .then(docSnap => {
+            const memberRole = docSnap.exists() && docSnap.data().role === 'admin'; // Modular call
             if (memberRole) {
                 groupManagementAdmin.classList.remove('hidden');
                 setupGroupMemberManagement(groupId);
             }
         });
 
-    const membersRef = db.collection('groups').doc(groupId).collection('members').orderBy('joinedAt');
-    const unsub = membersRef.onSnapshot(snapshot => {
+    const membersRef = collection(db, 'groups', groupId, 'members');
+    const q = query(membersRef, orderBy('joinedAt')); // Modular call
+    const unsub = onSnapshot(q, snapshot => { // Modular call
         memberListContent.innerHTML = '';
         const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         memberCountEl.textContent = members.length;
@@ -1054,7 +1068,7 @@ function setupGroupMemberList(groupId) {
         console.error("Error listening to group members: ", error);
     });
 
-    unsubs.push(unsub); // Add to unsubs to be cleared when chat window closes
+    unsubs.push(unsub);
 }
 
 /**
@@ -1069,16 +1083,18 @@ function setupGroupMemberManagement(groupId) {
         if (!confirmed) return;
 
         try {
-            await db.collection('groups').doc(groupId).collection('members').doc(email).set({
+            const memberDocRef = doc(collection(db, 'groups', groupId, 'members'), email);
+            await setDoc(memberDocRef, { // Modular call
                 email: email,
                 role: 'member',
-                joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                joinedAt: serverTimestamp() // Modular call
             });
 
             // Update member count on the main group document
-            await db.collection('groups').doc(groupId).update({ memberCount: firebase.firestore.FieldValue.increment(1) });
+            const groupDocRef = doc(db, 'groups', groupId);
+            await setDoc(groupDocRef, { memberCount: increment(1) }, { merge: true }); // Modular call
             
-            showMessage('加入成功', `${email} 已加入群組。', 'success');
+            showMessage('加入成功', `${email} 已加入群組。`, 'success');
             manageMemberEmail.value = '';
         } catch (e) {
             showMessage('操作失敗', '加入成員失敗。', 'error');
@@ -1094,9 +1110,11 @@ function setupGroupMemberManagement(groupId) {
         if (!confirmed) return;
 
         try {
-            await db.collection('groups').doc(groupId).collection('members').doc(email).delete();
+            const memberDocRef = doc(collection(db, 'groups', groupId, 'members'), email);
+            await deleteDoc(memberDocRef); // Modular call
              // Update member count on the main group document
-            await db.collection('groups').doc(groupId).update({ memberCount: firebase.firestore.FieldValue.increment(-1) });
+            const groupDocRef = doc(db, 'groups', groupId);
+            await setDoc(groupDocRef, { memberCount: increment(-1) }, { merge: true }); // Modular call
             
             showMessage('踢出成功', `${email} 已被踢出群組。`, 'success');
             manageMemberEmail.value = '';
@@ -1120,13 +1138,14 @@ monitorBtn.onclick = async () => {
         return showMessage('權限不足', '僅最高管理員可監看聊天記錄。', 'error');
     }
     
-    // The room ID for monitoring is the canonical DM room ID
     const [emailA, emailB] = v.split('_');
     const roomId = getDmRoomId(emailA, emailB);
 
-    // Check if the room exists before opening
     try {
-        const roomTest = await db.collection('chats').doc(roomId).collection('messages').limit(1).get();
+        const messagesRef = collection(db, 'chats', roomId, 'messages');
+        const q = query(messagesRef, limit(1)); // Modular call
+        const roomTest = await getDocs(q); // Modular call
+
         if (roomTest.empty) {
             return showMessage('監看失敗', '此兩人之間尚未有聊天記錄。', 'error');
         }
@@ -1134,7 +1153,6 @@ monitorBtn.onclick = async () => {
         return showMessage('監看錯誤', '無法存取聊天紀錄。', 'error');
     }
 
-    // Open the chat in monitor mode
     openChatWindow(roomId, `🚨 監看中: ${v} (限100筆)`, 'monitor', v);
 };
 
@@ -1146,12 +1164,11 @@ monitorBtn.onclick = async () => {
  */
 function initFirebase(token) {
     try {
-        app = firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        auth = firebase.auth();
-        db.settings({ merge: true });
+        app = initializeApp(firebaseConfig); // Modular call
+        db = getFirestore(app); // Modular call
+        auth = getAuth(app); // Modular call
+        setLogLevel('debug'); // Modular call
 
-        firebase.firestore.setLogLevel('debug');
     } catch (e) {
         console.error("Firebase Init Error: ", e);
         showMessage('初始化失敗', 'Firebase 服務無法初始化。', 'error');
@@ -1160,32 +1177,32 @@ function initFirebase(token) {
     
     // Attempt custom token sign-in if available (provided by canvas environment)
     if (token) {
-        auth.signInWithCustomToken(token)
+        signInWithCustomToken(auth, token) // Modular call
             .catch(async (error) => {
                 console.error("Custom token sign-in failed, falling back to Google login:", error);
-                auth.signOut(); // Ensure we are signed out before showing Google login
+                signOut(auth); // Modular call: Ensure we are signed out before showing Google login
             });
     }
 
     // Main Auth State Listener (Controls Page 1 / Page 2 switch)
-    auth.onAuthStateChanged(async user => {
+    onAuthStateChanged(auth, async user => { // Modular call
         if (user && user.email) {
             // User is signed in (Google)
             ME_EMAIL = user.email.toLowerCase();
             ME_ID = user.uid;
 
             // 1. Check/Set User Role and Profile
-            const userDocRef = db.collection('users').doc(ME_EMAIL);
-            const userDoc = await userDocRef.get();
+            const userDocRef = doc(db, 'users', ME_EMAIL); // Modular call
+            const userDoc = await getDoc(userDocRef); // Modular call
             
             // Check for admin/superadmin role (Hardcoded check)
-            ME_ROLE = (ME_EMAIL === ADMIN_EMAIL) ? 'superadmin' : (userDoc.exists && userDoc.data().role) ? userDoc.data().role : 'user';
+            ME_ROLE = (ME_EMAIL === ADMIN_EMAIL) ? 'superadmin' : (userDoc.exists() && userDoc.data().role) ? userDoc.data().role : 'user'; // Modular call
 
             // Update Firestore profile
-            await userDocRef.set({
+            await setDoc(userDocRef, { // Modular call
                 email: ME_EMAIL,
                 role: ME_ROLE,
-                lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+                lastSeen: serverTimestamp(), // Modular call
             }, { merge: true });
             
             // 2. Update UI
@@ -1224,34 +1241,34 @@ function setupSidebarListeners() {
     clearUnsubs();
 
     // 1. Friend Requests Listener
-    const reqRef = db.collection('friends').doc(ME_EMAIL).collection('requests').orderBy('sentAt', 'desc');
-    unsubs.push(reqRef.onSnapshot(snapshot => {
+    const reqColRef = collection(db, 'friends', ME_EMAIL, 'requests');
+    const reqQ = query(reqColRef, orderBy('sentAt', 'desc')); // Modular call
+    unsubs.push(onSnapshot(reqQ, snapshot => { // Modular call
         const requests = snapshot.docs.map(doc => doc.data());
         renderRequestList(requests);
     }, error => console.error("Request listener error:", error)));
 
     // 2. DM Friends Listener
-    const dmRef = db.collection('friends').doc(ME_EMAIL).collection('list').orderBy('lastChat', 'desc');
-    unsubs.push(dmRef.onSnapshot(snapshot => {
+    const dmColRef = collection(db, 'friends', ME_EMAIL, 'list');
+    const dmQ = query(dmColRef, orderBy('lastChat', 'desc')); // Modular call
+    unsubs.push(onSnapshot(dmQ, snapshot => { // Modular call
         const friends = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         renderDmList(friends);
     }, error => console.error("DM friend list error:", error)));
 
     // 3. Group List Listener (Only groups I am a member of)
-    const groupsRef = db.collection('groups');
-    unsubs.push(groupsRef.onSnapshot(async () => {
-        // --- NOTE: This is an expensive way to check group membership due to Firestore limitations in single-file environments.
-        // It fetches all group data and checks membership in client. For real-world use, this needs server-side optimization.
+    // NOTE: This remains an expensive, client-side check to work around Firestore's lack of array/membership queries.
+    const groupsRef = collection(db, 'groups');
+    unsubs.push(onSnapshot(groupsRef, async (groupsSnapshot) => { // Modular call
         
-        const allGroupDocs = await db.collection('groups').where('memberCount', '>', 0).get();
         const myGroupIds = [];
         
-        // Loop through all groups to check if I am a member
-        for (const doc of allGroupDocs.docs) {
+        for (const docSnap of groupsSnapshot.docs) {
             // Check subcollection membership
-            const memberCheck = await db.collection('groups').doc(doc.id).collection('members').doc(ME_EMAIL).get();
-            if (memberCheck.exists) {
-                 myGroupIds.push({ id: doc.id, ...doc.data() });
+            const memberDocRef = doc(collection(db, 'groups', docSnap.id, 'members'), ME_EMAIL);
+            const memberCheck = await getDoc(memberDocRef); // Modular call
+            if (memberCheck.exists()) { // Modular call
+                 myGroupIds.push({ id: docSnap.id, ...docSnap.data() });
             }
         }
         
@@ -1270,8 +1287,8 @@ googleLoginBtn.onclick = async () => {
     }
     
     try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await firebase.auth().signInWithPopup(provider);
+        const provider = new GoogleAuthProvider(); // Modular call
+        await signInWithPopup(auth, provider); // Modular call
         showMessage('登入成功', '您已成功登入，歡迎回來！', 'success');
     } catch (error) {
         if (error.code !== 'auth/popup-closed-by-user') {
@@ -1283,7 +1300,7 @@ googleLoginBtn.onclick = async () => {
 
 /* ============== Logout ============== */
 logoutBtn.onclick = () => {
-    firebase.auth().signOut().then(() => {
+    signOut(auth).then(() => { // Modular call
         showMessage('登出成功', '您已安全登出。', 'info');
     }).catch(error => {
         showMessage('登出失敗', '登出時發生錯誤。', 'error');
@@ -1293,7 +1310,6 @@ logoutBtn.onclick = () => {
 
 /* ============== initial: start firebase ============== */
 window.onload = function() {
-    // 傳入從環境獲得的初始 token (如果存在)
     initFirebase(initialAuthToken);
 }
 </script>
