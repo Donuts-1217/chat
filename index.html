@@ -215,7 +215,7 @@ a{color:inherit}
   background-color:#4752c4;
 }
 
-/* Login Screen */
+/* Login Screen (Page 1) */
 #login-screen{
   position:fixed;
   top:0;
@@ -294,11 +294,11 @@ a{color:inherit}
   </div>
 </div>
 
-<!-- Login Screen -->
+<!-- Login Screen (Page 1) -->
 <div id="login-screen" class="center hidden">
   <div class="login-card">
     <h1>歡迎來到校園聊天室 🔥</h1>
-    <p>這是一個模擬 Discord 風格的即時訊息應用程式，請使用您的 Google 帳號登入以開始與朋友聊天。</p>
+    <p>請使用您的 Google 帳號登入以開始與朋友聊天。</p>
     <button id="googleLoginBtn">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,7.917-11.303,7.917c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238c-2.053,1.383-4.524,2.19-7.219,2.19c-5.202,0-9.619-3.317-11.283-7.746l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.08,5.55l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
       使用 Google 登入
@@ -306,7 +306,7 @@ a{color:inherit}
   </div>
 </div>
 
-<!-- Main Application Container -->
+<!-- Main Application Container (Page 2) -->
 <div id="app-container" class="hidden">
   
   <!-- Sidebar (Left Panel) -->
@@ -672,7 +672,7 @@ monitorBtn.onclick = async () => {
     
     // Check user role
     const meDoc = await firebase.firestore().collection('users').doc(ME_EMAIL).get();
-    ME_ROLE = meDoc.exists && meDoc.data().role === 'superadmin' ? 'superadmin' : 'user';
+    ME_ROLE = meDoc.exists && meDoc.data().role === 'superadmin' ? meDoc.data().role : 'user';
     
     if (ME_ROLE !== 'superadmin') {
         return showMessage('權限不足', '僅最高管理員可監看聊天記錄。', 'error');
@@ -720,11 +720,11 @@ function initFirebase(token) {
 }
 
 /**
- * Main function to handle user state changes.
+ * Main function to handle user state changes. This controls the 2-page switch.
  */
 firebase.auth().onAuthStateChanged(async user => {
-    if (user) {
-        // User is signed in
+    if (user && (user.email || user.isAnonymous)) {
+        // User is signed in (either Google or Anonymous)
         ME_EMAIL = user.email || user.uid + '@anon.com'; // Use email if available (Google), otherwise use UID
         ME_ID = user.uid;
 
@@ -749,7 +749,7 @@ firebase.auth().onAuthStateChanged(async user => {
         
         document.getElementById('me-role').textContent = ME_ROLE;
         
-        // Show app, hide login
+        // ** Show app, hide login (Switch to Page 2) **
         loginScreen.classList.add('hidden');
         appContainer.classList.remove('hidden');
 
@@ -775,7 +775,7 @@ firebase.auth().onAuthStateChanged(async user => {
         unsubs.length = 0;
         Object.values(openChats).forEach(o => o.unsub && o.unsub());
         
-        // Show login, hide app
+        // ** Show login, hide app (Switch to Page 1) **
         loginScreen.classList.remove('hidden');
         appContainer.classList.add('hidden');
     }
@@ -787,8 +787,7 @@ googleLoginBtn.onclick = async () => {
         // 1. Create a Google Auth Provider instance
         const provider = new firebase.auth.GoogleAuthProvider();
         
-        // 2. Sign in with popup
-        // This is the function that causes the external Google login page to pop up.
+        // 2. Sign in with popup - this triggers the external Google login page
         await firebase.auth().signInWithPopup(provider);
         // onAuthStateChanged listener handles the success after the popup closes.
         showMessage('登入成功', '您已成功登入，歡迎回來！', 'success');
@@ -796,7 +795,6 @@ googleLoginBtn.onclick = async () => {
     } catch (error) {
         // Handle popup closed by user or other auth errors gracefully
         if (error.code === 'auth/popup-closed-by-user') {
-             // User closed the popup, no need to show a harsh error
              console.log("Google Sign-in: Popup closed by user.");
         } else if (error.code === 'auth/cancelled-popup-request') {
              showMessage('登入錯誤', '登入視窗已被另一個請求取代，請稍後重試。', 'error');
