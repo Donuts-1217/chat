@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>🔥 校園聊天室（Discord 風格）</title>
+<title>🔥 校園聊天室 v3 (完整版)</title>
 
 <!-- Firebase compatibility SDKs for single-file use -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -15,10 +15,10 @@
 <style>
 :root{
   --bg:#0f1724; --panel:#111827; --muted:#9ca3af; --accent:#5865f2; --accent-2:#2ecc71; --danger:#ef4444;
-  --card:#0b1020;
+  --card:#0b1020; --hover:#1f2937;
 }
 *{box-sizing:border-box;font-family:Inter, "Noto Sans TC", "微軟正黑體", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
-body{margin:0;background:linear-gradient(180deg,#071025 0%, #071223 100%);color:#e6eef8; height: 100vh;}
+body{margin:0;background:linear-gradient(180deg,#071025 0%, #071223 100%);color:#e6eef8; height: 100vh; overflow: hidden;}
 a{color:inherit}
 .center{display:flex;justify-content:center;align-items:center}
 
@@ -32,14 +32,45 @@ a{color:inherit}
 
 /* Sidebar (Left Panel) */
 #sidebar{
-  width:280px;
-  min-width:280px;
+  width:300px; /* Wider sidebar for more controls */
+  min-width:300px;
   background-color:var(--panel);
-  padding:16px;
+  padding:16px 12px;
   border-right:1px solid #1f2937;
   display:flex;
   flex-direction:column;
 }
+.sidebar-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:background-color 0.2s, transform 0.1s;
+  margin-bottom:4px;
+}
+.sidebar-item:hover{
+  background-color:var(--hover);
+  transform: translateY(-1px);
+}
+.sidebar-item.active{
+  background-color:var(--accent);
+  box-shadow: 0 2px 5px rgba(88, 101, 242, 0.3);
+}
+.sidebar-item.active:hover{
+  background-color:var(--accent);
+}
+.message-avatar{
+  width:36px;
+  height:36px;
+  border-radius:9999px;
+  background-color:var(--accent);
+  flex-shrink:0;
+  font-weight:700;
+  font-size:0.9rem;
+}
+.chat-avatar-lg { width: 50px; height: 50px; font-size: 1.5rem; }
 
 /* Chat Area (Right Panel) */
 #chat-area{
@@ -58,6 +89,13 @@ a{color:inherit}
   font-weight:600;
   display:flex;
   align-items:center;
+  justify-content:space-between;
+}
+.chat-header button{
+  padding:6px 12px;
+  border-radius:6px;
+  font-size:0.875rem;
+  transition:background-color 0.2s;
 }
 
 /* Message List */
@@ -78,15 +116,6 @@ a{color:inherit}
   display:flex;
   align-items:flex-start;
   gap:12px;
-}
-.message-avatar{
-  width:40px;
-  height:40px;
-  border-radius:9999px;
-  background-color:var(--accent);
-  flex-shrink:0;
-  font-weight:700;
-  font-size:1rem;
 }
 .message-content{
   flex-grow:1;
@@ -149,118 +178,21 @@ a{color:inherit}
   background-color:#4752c4;
 }
 
-/* Sidebar List Item */
-.sidebar-item{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:8px 12px;
-  border-radius:8px;
-  cursor:pointer;
-  transition:background-color 0.2s;
+/* Tab Controls */
+.tab-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 600;
+  color: var(--muted);
 }
-.sidebar-item:hover{
-  background-color:#1f2937;
+.tab-btn.active {
+  background-color: var(--accent);
+  color: white;
 }
-.sidebar-item.active{
-  background-color:var(--accent);
-}
-.sidebar-item.active:hover{
-  background-color:var(--accent);
-}
-
-/* User Info Footer */
-#user-info{
-  margin-top:auto;
-  padding-top:16px;
-  border-top:1px solid #1f2937;
-}
-
-/* Message Box (Modal) */
-#message-box{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background-color:rgba(0,0,0,0.7);
-  z-index:1000;
-}
-.message-box-content{
-  background-color:var(--panel);
-  padding:24px;
-  border-radius:12px;
-  max-width:400px;
-  width:90%;
-  box-shadow:0 10px 25px rgba(0,0,0,0.5);
-}
-.message-box-header{
-  font-size:1.5rem;
-  font-weight:700;
-  margin-bottom:8px;
-  color:var(--accent);
-}
-.message-box-body{
-  color:#e6eef8;
-  margin-bottom:20px;
-}
-.message-box-footer button{
-  background-color:var(--accent);
-  color:white;
-  padding:8px 16px;
-  border-radius:8px;
-  transition:background-color 0.2s;
-}
-.message-box-footer button:hover{
-  background-color:#4752c4;
-}
-
-/* Login Screen (Page 1) */
-#login-screen{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background-color:var(--bg);
-  z-index:2000;
-}
-.login-card{
-  background-color:var(--panel);
-  padding:40px;
-  border-radius:16px;
-  text-align:center;
-  box-shadow:0 15px 30px rgba(0,0,0,0.5);
-  max-width:450px;
-  width:90%;
-}
-.login-card h1{
-  font-size:2.25rem;
-  font-weight:800;
-  margin-bottom:10px;
-  color:var(--accent-2);
-}
-.login-card p{
-  color:var(--muted);
-  margin-bottom:30px;
-}
-#googleLoginBtn{
-  display:inline-flex;
-  align-items:center;
-  background-color:white;
-  color:#111827;
-  padding:12px 24px;
-  border-radius:10px;
-  font-weight:600;
-  transition:all 0.2s;
-  box-shadow:0 4px 6px rgba(0,0,0,0.1);
-}
-#googleLoginBtn:hover{
-  box-shadow:0 6px 10px rgba(0,0,0,0.2);
-  transform:translateY(-2px);
-}
-#googleLoginBtn svg{
-  margin-right:10px;
+.tab-btn:not(.active):hover {
+  background-color: var(--hover);
 }
 
 /* Responsive adjustments */
@@ -283,24 +215,25 @@ a{color:inherit}
 </head>
 <body class="center">
 
-<!-- Message Box Modal (for errors/alerts) -->
-<div id="message-box" class="center hidden">
-  <div class="message-box-content">
-    <div id="message-box-header" class="message-box-header">標題</div>
-    <div id="message-box-body" class="message-box-body">內容</div>
-    <div class="message-box-footer flex justify-end">
-      <button id="message-box-ok-btn">確定</button>
+<!-- Message Box Modal (for errors/alerts/confirmations) -->
+<div id="message-box" class="center fixed inset-0 bg-black/70 z-[2000] hidden">
+  <div class="message-box-content bg-panel p-6 rounded-xl shadow-2xl max-w-sm w-full transition-all duration-300 transform scale-100">
+    <div id="message-box-header" class="text-xl font-bold mb-2 text-accent">標題</div>
+    <div id="message-box-body" class="text-white mb-6">內容</div>
+    <div class="message-box-footer flex justify-end gap-3">
+      <button id="message-box-cancel-btn" class="hidden bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition duration-150">取消</button>
+      <button id="message-box-ok-btn" class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-150">確定</button>
     </div>
   </div>
 </div>
 
 <!-- Login Screen (Page 1) -->
-<div id="login-screen" class="center hidden">
-  <div class="login-card">
-    <h1>歡迎來到校園聊天室 🔥</h1>
-    <p>請使用您的 Google 帳號登入以開始與朋友聊天。</p>
-    <button id="googleLoginBtn">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,7.917-11.303,7.917c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238c-2.053,1.383-4.524,2.19-7.219,2.19c-5.202,0-9.619-3.317-11.283-7.746l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.08,5.55l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+<div id="login-screen" class="center fixed inset-0 bg-bg z-[3000] hidden">
+  <div class="login-card bg-panel p-10 rounded-2xl text-center shadow-3xl max-w-md w-11/12">
+    <h1 class="text-3xl font-extrabold mb-2 text-accent-2">校園聊天室 🔥</h1>
+    <p class="text-gray-400 mb-6">請使用 Google 帳號登入以開始與朋友聊天。</p>
+    <button id="googleLoginBtn" class="bg-white text-gray-900 px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition duration-200 flex items-center justify-center mx-auto transform hover:scale-[1.02]">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24" class="mr-3"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,7.917-11.303,7.917c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.158,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238c-2.053,1.383-4.524,2.19-7.219,2.19c-5.202,0-9.619-3.317-11.283-7.746l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.08,5.55l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
       使用 Google 登入
     </button>
   </div>
@@ -311,33 +244,58 @@ a{color:inherit}
   
   <!-- Sidebar (Left Panel) -->
   <div id="sidebar">
-    <h2 class="text-xl font-bold mb-4 text-white">好友與聊天</h2>
+    <h2 class="text-2xl font-bold mb-4 text-white">🔥 聊天室</h2>
     
-    <!-- Direct Message List -->
-    <div id="dm-list" class="flex flex-col gap-2 flex-grow overflow-y-auto mb-4">
-      <!-- DM Items will be dynamically inserted here -->
-      <p class="text-sm text-gray-500 p-2">沒有進行中的私人聊天...</p>
+    <!-- Tab Controls -->
+    <div class="flex gap-1 mb-4 border-b border-gray-700 pb-2">
+      <div id="tab-dm" class="tab-btn active" data-tab="dm">私聊</div>
+      <div id="tab-group" class="tab-btn" data-tab="group">群組</div>
+      <div id="tab-request" class="tab-btn" data-tab="request">請求 (<span id="request-count">0</span>)</div>
     </div>
     
-    <!-- Monitor/Superadmin Section -->
-    <div class="p-2 border border-gray-700 rounded-lg mb-4">
-      <h3 class="text-base font-semibold mb-2">管理員監看</h3>
-      <div class="flex gap-2">
-        <input id="monitorInput" type="text" placeholder="emailA_emailB" class="flex-grow bg-gray-700 border border-gray-600 rounded-md p-2 text-sm text-white focus:ring-blue-500 focus:border-blue-500" />
-        <button id="monitorBtn" class="bg-gray-600 hover:bg-gray-500 text-white text-sm px-3 py-2 rounded-md transition duration-150">監看</button>
+    <!-- Friend Search Section (Always visible) -->
+    <div class="mb-4">
+      <input id="friendSearchInput" type="email" placeholder="搜尋或發送好友請求 (Email)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white focus:ring-accent focus:border-accent" />
+      <button id="sendRequestBtn" class="w-full mt-2 bg-accent hover:bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition duration-150">發送請求</button>
+    </div>
+
+    <!-- Content List Container -->
+    <div id="content-list-container" class="flex flex-col gap-2 flex-grow overflow-y-auto mb-4">
+      <!-- DM List (Active by default) -->
+      <div id="dm-list" class="tab-content">
+        <p class="text-sm text-gray-500 p-2 empty-message">沒有進行中的私聊...</p>
       </div>
-      <p class="text-xs text-gray-500 mt-1">格式: emailA_emailB (僅限超級管理員)</p>
+
+      <!-- Group List (Hidden by default) -->
+      <div id="group-list" class="tab-content hidden">
+        <p class="text-sm text-gray-500 p-2 empty-message">沒有加入任何群組...</p>
+      </div>
+
+      <!-- Request List (Hidden by default) -->
+      <div id="request-list" class="tab-content hidden">
+        <p class="text-sm text-gray-500 p-2 empty-message">沒有待處理的好友請求...</p>
+      </div>
+    </div>
+    
+    <!-- Admin & Monitor Controls (Visible only to Admin) -->
+    <div id="admin-controls" class="p-3 border border-gray-700 rounded-xl mb-4 bg-gray-800/50 hidden">
+      <h3 class="text-sm font-semibold mb-2 text-red-400">🚨 管理員專區</h3>
+      <button id="createGroupBtn" class="w-full bg-accent-2 hover:bg-green-600 text-white text-sm px-3 py-2 rounded-lg transition duration-150 mb-2">建立新群組</button>
+      <div class="flex gap-2 items-center">
+        <input id="monitorInput" type="text" placeholder="emailA_emailB 監看" class="flex-grow bg-gray-700 border border-gray-600 rounded-md p-2 text-xs text-white" />
+        <button id="monitorBtn" class="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition duration-150">監看</button>
+      </div>
     </div>
 
     <!-- User Info Footer -->
-    <div id="user-info" class="p-3 bg-gray-800 rounded-lg shadow-inner">
+    <div id="user-info" class="p-3 bg-gray-800 rounded-xl shadow-inner">
       <div class="flex items-center gap-3">
         <div id="me-avatar" class="center message-avatar bg-accent-2"></div>
-        <div class="flex-grow">
+        <div class="flex-grow min-w-0">
           <div id="me-email" class="text-sm font-medium truncate">loading...</div>
           <div id="me-role" class="text-xs text-green-400 font-semibold">user</div>
         </div>
-        <button id="logoutBtn" class="text-red-400 hover:text-red-300 transition duration-150" title="登出">
+        <button id="logoutBtn" class="text-red-400 hover:text-red-300 transition duration-150 p-2 rounded-lg hover:bg-gray-700" title="登出">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
         </button>
       </div>
@@ -347,29 +305,53 @@ a{color:inherit}
   <!-- Chat Area (Right Panel) -->
   <div id="chat-area">
     <div id="current-chat-header" class="chat-header">
-      選擇一個聊天來開始
+      <div class="flex items-center gap-3">
+        <div id="chat-avatar" class="center chat-avatar-lg bg-gray-600">?</div>
+        <span id="chat-title">選擇一個聊天來開始</span>
+      </div>
+      <div id="chat-actions" class="flex gap-2">
+        <!-- Action buttons (Block/Delete/Group Management) will be inserted here -->
+      </div>
     </div>
     
     <!-- Main Chat Content -->
     <div id="current-chat-content" class="flex flex-col flex-grow">
-      <!-- Messages will be displayed here -->
+      
       <div id="default-message" class="center flex-col flex-grow text-gray-500 text-lg">
         <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square-dots mb-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/></svg>
-        <p>點擊左側列表中的好友即可開始聊天</p>
+        <p>點擊左側列表中的好友或群組即可開始聊天</p>
       </div>
 
       <!-- Live Chat Window (Hidden by default) -->
       <div id="live-chat-window" class="flex-col flex-grow hidden">
-        <div id="message-list" class="message-list">
-          <!-- Messages inserted here -->
+        <div class="flex-grow flex overflow-hidden">
+          
+          <!-- Message List -->
+          <div id="message-list" class="message-list flex-grow">
+            <!-- Messages inserted here -->
+          </div>
+          
+          <!-- Group Member List (Visible only for group chats) -->
+          <div id="group-member-list" class="w-1/4 min-w-[200px] border-l border-gray-700 p-4 bg-gray-800/50 hidden overflow-y-auto">
+            <h4 class="text-sm font-bold mb-3 text-white">群組成員 (<span id="member-count">0</span>)</h4>
+            <div id="member-list-content" class="flex flex-col gap-2">
+              <!-- Members inserted here -->
+            </div>
+            <div id="group-management-admin" class="mt-4 pt-4 border-t border-gray-700 hidden">
+              <h5 class="text-sm font-bold mb-2 text-red-400">管理成員</h5>
+              <input id="manageMemberEmail" type="email" placeholder="成員 Email" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-xs text-white mb-2" />
+              <button id="addMemberBtn" class="w-full bg-accent hover:bg-blue-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition duration-150 mb-1">加入成員</button>
+              <button id="removeMemberBtn" class="w-full bg-danger hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition duration-150">踢出成員</button>
+            </div>
+          </div>
         </div>
-        
+
         <div id="chat-input-container" class="chat-input-container">
           <div id="block-info" class="text-sm text-red-400 mb-2 p-2 rounded-lg bg-red-900/30 hidden">
               您已被對方封鎖，無法發送訊息。
           </div>
           <div class="chat-input-box">
-            <textarea id="chat-input-textarea" placeholder="輸入訊息... (Enter 發送, Shift+Enter 換行)" rows="1"></textarea>
+            <textarea id="chat-input-textarea" placeholder="輸入訊息... (Enter 送出, Shift+Enter 換行)" rows="1"></textarea>
             <button id="chat-send-btn">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9"/></svg>
             </button>
@@ -382,6 +364,7 @@ a{color:inherit}
 
 <script type="module">
 // Global Variables for Firebase configuration provided by the environment
+const ADMIN_EMAIL = 'chianghansen0302@gmail.com';
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -394,149 +377,303 @@ let ME_EMAIL = null;
 let ME_ID = null;
 let ME_ROLE = 'user';
 const unsubs = []; // Array to store firestore unsubscribe functions
-const openChats = {}; // Store {roomId: {unsub: fn, otherEmail: string}}
 let currentRoomId = null;
+let currentChatType = null; // 'dm', 'group', or 'monitor'
+let currentOtherEmail = null;
 
 // DOM Elements
 const loginScreen = document.getElementById('login-screen');
 const appContainer = document.getElementById('app-container');
 const googleLoginBtn = document.getElementById('googleLoginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
-const dmList = document.getElementById('dm-list');
-const chatHeader = document.getElementById('current-chat-header');
+
+// Sidebar Elements
+const tabBtns = { dm: document.getElementById('tab-dm'), group: document.getElementById('tab-group'), request: document.getElementById('tab-request') };
+const tabContents = { dm: document.getElementById('dm-list'), group: document.getElementById('group-list'), request: document.getElementById('request-list') };
+const requestCountEl = document.getElementById('request-count');
+const friendSearchInput = document.getElementById('friendSearchInput');
+const sendRequestBtn = document.getElementById('sendRequestBtn');
+const adminControls = document.getElementById('admin-controls');
+const monitorInput = document.getElementById('monitorInput');
+const monitorBtn = document.getElementById('monitorBtn');
+const createGroupBtn = document.getElementById('createGroupBtn');
+
+// Chat Area Elements
+const chatHeader = document.getElementById('chat-title');
+const chatAvatar = document.getElementById('chat-avatar');
+const chatActions = document.getElementById('chat-actions');
 const messageList = document.getElementById('message-list');
 const liveChatWindow = document.getElementById('live-chat-window');
 const defaultMessage = document.getElementById('default-message');
-const monitorBtn = document.getElementById('monitorBtn');
-const monitorInput = document.getElementById('monitorInput');
+const chatInputContainer = document.getElementById('chat-input-container');
+const chatInputTextarea = document.getElementById('chat-input-textarea');
+const chatSendBtn = document.getElementById('chat-send-btn');
+const blockInfo = document.getElementById('block-info');
+const groupMemberList = document.getElementById('group-member-list');
+const memberListContent = document.getElementById('member-list-content');
+const memberCountEl = document.getElementById('member-count');
+const groupManagementAdmin = document.getElementById('group-management-admin');
+const manageMemberEmail = document.getElementById('manageMemberEmail');
+const addMemberBtn = document.getElementById('addMemberBtn');
+const removeMemberBtn = document.getElementById('removeMemberBtn');
+
+/* ==================== Utility Functions ==================== */
 
 /**
- * Custom function to display error/success messages instead of alert().
+ * Custom function to display error/success messages instead of alert() and confirm().
  * @param {string} title - The title of the message box.
  * @param {string} body - The content of the message.
- * @param {string} type - 'success', 'error', or 'info'.
+ * @param {string} type - 'success', 'error', 'info', or 'confirm'.
+ * @returns {Promise<boolean>} Resolves with true for OK, false for Cancel (only for 'confirm').
  */
 function showMessage(title, body, type = 'info') {
-    const box = document.getElementById('message-box');
-    const header = document.getElementById('message-box-header');
-    const bodyEl = document.getElementById('message-box-body');
-    const okBtn = document.getElementById('message-box-ok-btn');
+    return new Promise(resolve => {
+        const box = document.getElementById('message-box');
+        const header = document.getElementById('message-box-header');
+        const bodyEl = document.getElementById('message-box-body');
+        const okBtn = document.getElementById('message-box-ok-btn');
+        const cancelBtn = document.getElementById('message-box-cancel-btn');
 
-    header.textContent = title;
-    bodyEl.textContent = body;
+        header.textContent = title;
+        bodyEl.textContent = body;
 
-    // Apply color based on type
-    header.style.color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--accent-2)' : 'var(--accent)';
+        // Apply color based on type
+        header.style.color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--accent-2)' : 'var(--accent)';
 
-    box.classList.remove('hidden');
+        // Setup buttons and visibility
+        if (type === 'confirm') {
+            cancelBtn.classList.remove('hidden');
+            okBtn.textContent = '確定';
+            okBtn.onclick = () => { box.classList.add('hidden'); resolve(true); };
+            cancelBtn.onclick = () => { box.classList.add('hidden'); resolve(false); };
+        } else {
+            cancelBtn.classList.add('hidden');
+            okBtn.textContent = '確定';
+            okBtn.onclick = () => { box.classList.add('hidden'); resolve(true); };
+        }
 
-    okBtn.onclick = () => {
-        box.classList.add('hidden');
-    };
+        box.classList.remove('hidden');
+    });
 }
 
 /**
- * Helper to generate a consistent room ID regardless of user order.
+ * Helper to generate a consistent DM room ID regardless of user order.
  * @param {string} emailA
  * @param {string} emailB
  * @returns {string} The canonical room ID (email_sorted_A + "_" + email_sorted_B)
  */
-function getRoomId(emailA, emailB) {
+function getDmRoomId(emailA, emailB) {
     const emails = [emailA.toLowerCase(), emailB.toLowerCase()].sort();
     return emails[0] + "_" + emails[1];
 }
 
 /**
  * Creates the HTML for a message item.
- * @param {object} message
- * @param {string} message.from
- * @param {string} message.text
- * @param {firebase.firestore.Timestamp | null} message.time
- * @returns {string} HTML string
  */
 function createMessageHtml(message) {
-    const isMe = message.from === ME_EMAIL;
-    const initial = message.from ? message.from.charAt(0).toUpperCase() : '?';
+    const fromEmail = message.from || message.sender; // Handle both DM (from) and Group (sender) fields
+    const isMe = fromEmail === ME_EMAIL;
+    const initial = fromEmail ? fromEmail.charAt(0).toUpperCase() : '?';
     const timestamp = message.time ? new Date(message.time.seconds * 1000).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '發送中...';
     
-    // Check if a user is blocked (This is a simplified check for display, actual block check happens on send)
-    const isBlocked = ME_ID && message.from in (openChats[currentRoomId]?.isBlockedBy || {});
+    // Check if I am blocked (Only relevant for DM chats, but keep the check generic)
+    // The actual block check for sending happens in setupChatInput
+    const isBlockedMessage = message.isBlocked === true; 
     
     return `
-        <div class="message-item ${isMe ? 'self-end flex-row-reverse' : ''} ${isBlocked ? 'opacity-50' : ''}">
+        <div class="message-item ${isMe ? 'self-end flex-row-reverse' : ''} ${isBlockedMessage ? 'opacity-50' : ''}">
             <div class="center message-avatar ${isMe ? 'bg-blue-500' : 'bg-green-500'}">
                 ${initial}
             </div>
             <div class="message-content ${isMe ? 'text-right' : 'text-left'}">
                 <div class="message-meta ${isMe ? 'flex-row-reverse' : ''}">
-                    <span class="username">${message.from}</span>
+                    <span class="username">${isMe ? '我' : fromEmail}</span>
                     <span class="timestamp">${timestamp}</span>
                 </div>
-                <div class="message-text p-2 rounded-lg max-w-lg ${isMe ? 'bg-blue-600' : 'bg-gray-700'} inline-block shadow-md">
+                <div class="message-text p-2 rounded-xl max-w-lg ${isMe ? 'bg-blue-600' : 'bg-gray-700'} inline-block shadow-md">
                     ${message.text}
                 </div>
-                ${isBlocked && !isMe ? `<div class="text-xs text-red-400 mt-1">您已封鎖此用戶的訊息</div>` : ''}
             </div>
         </div>
     `;
 }
 
+// Global function to clear all active listeners
+function clearUnsubs() {
+    unsubs.forEach(u => u && u());
+    unsubs.length = 0;
+}
+
+/* ==================== UI / Tab Management ==================== */
+
+function switchTab(targetTab) {
+    ['dm', 'group', 'request'].forEach(tab => {
+        const isActive = tab === targetTab;
+        tabBtns[tab].classList.toggle('active', isActive);
+        tabContents[tab].classList.toggle('hidden', !isActive);
+    });
+}
+
+// Tab button click listeners
+Object.keys(tabBtns).forEach(tab => {
+    tabBtns[tab].onclick = () => switchTab(tab);
+});
+
+/* ==================== Chat Actions (Block/Delete/Group Management) ==================== */
+
+/**
+ * Renders the action buttons (Block/Delete) in the chat header for DMs.
+ */
+function renderDmActions(otherEmail) {
+    chatActions.innerHTML = `
+        <button id="blockBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white transition duration-150">封鎖</button>
+        <button id="deleteFriendBtn" class="bg-red-600 hover:bg-red-700 text-white transition duration-150">刪除好友</button>
+    `;
+
+    document.getElementById('blockBtn').onclick = () => handleBlockUser(otherEmail);
+    document.getElementById('deleteFriendBtn').onclick = () => handleDeleteFriend(otherEmail);
+}
+
+/**
+ * Renders the group info (currently none) for group chats.
+ */
+function renderGroupActions() {
+    chatActions.innerHTML = ''; // Groups don't need Block/Delete Friend buttons here
+    // Toggling the group member list is handled in openChatWindow
+}
+
+async function handleBlockUser(otherEmail) {
+    const confirmed = await showMessage('確認封鎖', `您確定要封鎖用戶 ${otherEmail} 嗎？封鎖後您將無法收到他的訊息，他也無法對您發送訊息。`, 'confirm');
+    if (!confirmed) return;
+
+    try {
+        // Create a document in my block list
+        await db.collection('blocks').doc(ME_EMAIL).collection('locked').doc(otherEmail).set({
+            blockedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showMessage('封鎖成功', `${otherEmail} 已被您封鎖。`, 'success');
+        
+        // Optional: Close the chat window and refresh the DM list
+        if (currentOtherEmail === otherEmail) {
+            closeChatWindow();
+            // User will reappear in DM list but chat is blocked.
+        }
+
+    } catch (e) {
+        showMessage('操作失敗', '封鎖用戶失敗。', 'error');
+        console.error("Block user error: ", e);
+    }
+}
+
+async function handleDeleteFriend(otherEmail) {
+    const confirmed = await showMessage('確認刪除', `您確定要刪除好友 ${otherEmail} 嗎？您將無法再私聊。`, 'confirm');
+    if (!confirmed) return;
+
+    try {
+        // 1. Delete friend status from my list
+        await db.collection('friends').doc(ME_EMAIL).collection('list').doc(otherEmail).delete();
+        // 2. Delete friend status from their list (Optional, depends on design. Assuming symmetric friendship)
+        await db.collection('friends').doc(otherEmail).collection('list').doc(ME_EMAIL).delete();
+
+        showMessage('刪除成功', `${otherEmail} 已從您的好友列表中刪除。`, 'success');
+        
+        // Close the chat window and refresh the DM list
+        if (currentOtherEmail === otherEmail) {
+            closeChatWindow();
+        }
+    } catch (e) {
+        showMessage('操作失敗', '刪除好友失敗。', 'error');
+        console.error("Delete friend error: ", e);
+    }
+}
+
+/* ==================== Core Chat Window Logic ==================== */
+
+/**
+ * Closes the currently open chat window and clears its state.
+ */
+function closeChatWindow() {
+    // Unsubscribe previous listener
+    clearUnsubs();
+    
+    // Reset state
+    currentRoomId = null;
+    currentChatType = null;
+    currentOtherEmail = null;
+
+    // Reset UI
+    chatHeader.textContent = '選擇一個聊天來開始';
+    chatAvatar.textContent = '?';
+    chatAvatar.className = 'center chat-avatar-lg bg-gray-600';
+    chatActions.innerHTML = '';
+    liveChatWindow.classList.add('hidden');
+    defaultMessage.classList.remove('hidden');
+    groupMemberList.classList.add('hidden');
+    Array.from(document.querySelectorAll('.sidebar-item')).forEach(el => el.classList.remove('active'));
+}
+
 /**
  * Opens a specific chat window and sets up the listener.
- * @param {string} otherEmail - The email of the other user.
+ * @param {string} id - RoomId or GroupId.
  * @param {string} title - The title to display in the chat header.
- * @param {boolean} isMonitor - Is this a superadmin monitoring session?
+ * @param {'dm' | 'group' | 'monitor'} type - Type of chat.
+ * @param {string | null} otherEmail - The email of the other user (only for DM/Monitor).
  */
-function openChatWindow(otherEmail, title, isMonitor = false) {
-    // 1. Clear previous listener if any
-    if (currentRoomId && openChats[currentRoomId]?.unsub) {
-        openChats[currentRoomId].unsub();
-    }
+function openChatWindow(id, title, type, otherEmail = null) {
+    closeChatWindow(); // Close existing chat first
     
-    // 2. Determine new room ID and update UI state
-    const newRoomId = isMonitor ? otherEmail : getRoomId(ME_EMAIL, otherEmail);
-    currentRoomId = newRoomId;
-    
-    // 3. Update Header
+    currentRoomId = id;
+    currentChatType = type;
+    currentOtherEmail = otherEmail;
+
+    // 1. Update Header
     chatHeader.textContent = title;
+    chatAvatar.textContent = (title.charAt(0) || '?').toUpperCase();
+    chatAvatar.className = `center chat-avatar-lg ${type === 'group' ? 'bg-indigo-600' : type === 'monitor' ? 'bg-red-700' : 'bg-accent'}`;
     
-    // 4. Show/Hide Windows
-    defaultMessage.classList.add('hidden');
+    // 2. Show/Hide Windows
     liveChatWindow.classList.remove('hidden');
+    defaultMessage.classList.add('hidden');
     
-    // 5. Clear messages
-    messageList.innerHTML = '';
-    
-    // 6. Highlight active item in sidebar (Not implemented fully, but conceptual placeholder)
-    Array.from(dmList.children).forEach(el => el.classList.remove('active'));
-    const activeEl = document.getElementById(`dm-item-${newRoomId}`);
+    // 3. Highlight active item in sidebar
+    const activeEl = document.getElementById(`chat-item-${id}`);
     if (activeEl) activeEl.classList.add('active');
 
-    // 7. Setup chat input area
-    setupChatInput(otherEmail, newRoomId, isMonitor);
+    // 4. Setup Chat Actions & Member List
+    groupMemberList.classList.add('hidden');
+    if (type === 'dm') {
+        renderDmActions(otherEmail);
+    } else if (type === 'group') {
+        renderGroupActions();
+        groupMemberList.classList.remove('hidden');
+        setupGroupMemberList(id);
+    } else if (type === 'monitor') {
+        chatActions.innerHTML = `<span class="text-sm font-bold text-red-400">管理員監看模式</span>`;
+    }
 
-    // 8. Setup new listener for the chat
-    // Query chats by timestamp, limit to 50 for performance
-    const q = firebase.firestore().collection('messages').doc(newRoomId).collection('chats').orderBy('time').limit(50);
-    
+    // 5. Setup chat input area (handles enable/disable based on type/block)
+    setupChatInput(otherEmail, id, type);
+
+    // 6. Setup new listener for the chat
+    const chatsRef = db.collection('chats').doc(id).collection('messages');
+    let q = chatsRef.orderBy('time').limit(type === 'monitor' ? 100 : 50); // Monitor limit 100
+
     const unsub = q.onSnapshot(snapshot => {
-        let fragment = document.createDocumentFragment();
-        snapshot.docChanges().forEach(change => {
-            const data = change.doc.data();
-            // Assign a temporary time object for pending messages
+        messageList.innerHTML = ''; // Clear and re-render all for simplicity on large changes
+        const fragment = document.createDocumentFragment();
+        
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
             const message = {
                 from: data.from,
+                sender: data.sender, // For groups
                 text: data.text,
                 time: data.time || { seconds: Date.now() / 1000 }
             };
 
-            if (change.type === "added") {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = createMessageHtml(message);
-                fragment.appendChild(tempDiv.firstChild);
-            }
-            // For simplicity, we only handle 'added' type to append new messages.
-            // A more robust app would handle 'modified' and 'removed'.
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = createMessageHtml(message);
+            fragment.appendChild(tempDiv.firstChild);
         });
 
         messageList.appendChild(fragment);
@@ -547,68 +684,83 @@ function openChatWindow(otherEmail, title, isMonitor = false) {
         showMessage('聊天錯誤', '無法載入訊息，請檢查連線。', 'error');
     });
 
-    // 9. Store unsubscribe function and context
-    openChats[newRoomId] = { unsub, otherEmail, isMonitor };
+    unsubs.push(unsub);
 }
 
 /**
  * Sets up the input box and send logic for the current chat.
- * @param {string} other - The email of the other user.
- * @param {string} roomId - The room ID.
- * @param {boolean} isMonitor - Is this a monitoring session?
  */
-function setupChatInput(other, roomId, isMonitor) {
-    const ta = document.getElementById('chat-input-textarea');
-    const send = document.getElementById('chat-send-btn');
-    const container = document.getElementById('chat-input-container');
-    const blockInfo = document.getElementById('block-info');
+function setupChatInput(otherEmail, roomId, type) {
+    const ta = chatInputTextarea;
+    const send = chatSendBtn;
 
-    // Disable input for monitoring
-    if (isMonitor) {
+    // Reset Input
+    ta.value = '';
+    ta.style.height = 'auto';
+
+    // Disable input for monitor
+    if (type === 'monitor') {
         ta.disabled = true;
         send.disabled = true;
-        container.style.opacity = 0.5;
+        chatInputContainer.style.opacity = 0.5;
         blockInfo.classList.add('hidden');
         ta.placeholder = '監看模式無法發送訊息';
         return;
     } else {
         ta.disabled = false;
         send.disabled = false;
-        container.style.opacity = 1.0;
-        ta.placeholder = '輸入訊息... (Enter 發送, Shift+Enter 換行)';
+        chatInputContainer.style.opacity = 1.0;
+        ta.placeholder = '輸入訊息... (Enter 送出, Shift+Enter 換行)';
     }
 
     send.onclick = async () => {
         const text = ta.value.trim();
         if (!text) return;
 
-        // Check if the current user is blocked by the other user
-        const blockDocRef = firebase.firestore().collection('blocked').doc(other).collection('locked').doc(ME_EMAIL);
-        const iAmBlocked = await blockDocRef.get();
-        
-        if (iAmBlocked.exists) {
-            blockInfo.classList.remove('hidden');
-            send.disabled = true;
-            ta.disabled = true;
-            showMessage('無法發送', '您已被對方封鎖，無法發送訊息。', 'error');
-            return;
-        } else {
-            blockInfo.classList.add('hidden');
-            send.disabled = false;
-            ta.disabled = false;
+        let collectionName = type === 'dm' ? 'messages' : 'messages'; // Using 'messages' for both DM and Group chats
+        let payload = {
+            text,
+            time: firebase.firestore.FieldValue.serverTimestamp(),
+        };
+
+        if (type === 'dm') {
+            // DM: Check if I am blocked by the other user
+            const blockDocRef = db.collection('blocks').doc(otherEmail).collection('locked').doc(ME_EMAIL);
+            const iAmBlocked = await blockDocRef.get();
+            
+            if (iAmBlocked.exists) {
+                blockInfo.classList.remove('hidden');
+                showMessage('無法發送', '您已被對方封鎖，無法發送訊息。', 'error');
+                return;
+            } else {
+                blockInfo.classList.add('hidden');
+            }
+            payload.from = ME_EMAIL;
+
+        } else if (type === 'group') {
+            // Group: Check if I am a member
+            const memberDoc = await db.collection('groups').doc(roomId).collection('members').doc(ME_EMAIL).get();
+            if (!memberDoc.exists) {
+                showMessage('錯誤', '您不是此群組的成員，無法發送訊息。', 'error');
+                return;
+            }
+            payload.sender = ME_EMAIL;
         }
 
-        // Check if the current user has blocked the other user (optional feature, not fully implemented)
-        // const iBlockDocRef = firebase.firestore().collection('blocked').doc(ME_EMAIL).collection('locked').doc(other);
-        // const iBlock = await iBlockDocRef.get();
-        // if (iBlock.exists) return showMessage('警告', '您已封鎖對方，仍可發送訊息，但對方可能看不到。');
-
         try {
-            await firebase.firestore().collection('messages').doc(roomId).collection('chats').add({
-                from: ME_EMAIL,
-                text,
-                time: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            // Send the message
+            await db.collection('chats').doc(roomId).collection('messages').add(payload);
+            
+            // Update lastChat time for DM list/Group list sorting
+            if (type === 'dm') {
+                // Update both users' DM list (friend status required)
+                await db.collection('friends').doc(ME_EMAIL).collection('list').doc(otherEmail).set({ lastChat: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                await db.collection('friends').doc(otherEmail).collection('list').doc(ME_EMAIL).set({ lastChat: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            } else if (type === 'group') {
+                // Update the group last activity time
+                await db.collection('groups').doc(roomId).set({ lastChat: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            }
+
             ta.value = '';
             ta.style.height = 'auto'; // Reset height after sending
         } catch (e) {
@@ -629,57 +781,346 @@ function setupChatInput(other, roomId, isMonitor) {
         ta.style.height = 'auto';
         ta.style.height = (ta.scrollHeight) + 'px';
     };
-    ta.style.height = 'auto';
 }
 
+/* ==================== Friend System Logic ==================== */
+
+sendRequestBtn.onclick = async () => {
+    const targetEmail = friendSearchInput.value.trim().toLowerCase();
+    if (!targetEmail || targetEmail === ME_EMAIL) {
+        return showMessage('錯誤', '請輸入有效的 Email 地址。', 'error');
+    }
+
+    try {
+        // 1. Check if the target user exists (optional but good practice)
+        const targetUserDoc = await db.collection('users').doc(targetEmail).get();
+        if (!targetUserDoc.exists) {
+            return showMessage('錯誤', `用戶 ${targetEmail} 不存在或尚未註冊。`, 'error');
+        }
+
+        // 2. Check if already friends
+        const friendDoc = await db.collection('friends').doc(ME_EMAIL).collection('list').doc(targetEmail).get();
+        if (friendDoc.exists) {
+            return showMessage('提示', `${targetEmail} 已經是您的好友。`, 'info');
+        }
+
+        // 3. Send Request: Create a document in the target's incoming requests
+        await db.collection('friends').doc(targetEmail).collection('requests').doc(ME_EMAIL).set({
+            senderEmail: ME_EMAIL,
+            sentAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // 4. Record outgoing request (for tracking)
+        await db.collection('friends').doc(ME_EMAIL).collection('sent_requests').doc(targetEmail).set({
+            recipientEmail: targetEmail,
+            sentAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        showMessage('請求已發送', `好友請求已成功發送給 ${targetEmail}。`, 'success');
+        friendSearchInput.value = '';
+
+    } catch (e) {
+        showMessage('發送失敗', '發送好友請求失敗。', 'error');
+        console.error("Send friend request error: ", e);
+    }
+};
+
 /**
- * Renders the sidebar with DM list.
- * @param {object[]} dmListEntries - Array of {email: string} objects.
+ * Renders the list of friend requests.
  */
-function renderDmList(dmListEntries) {
-    dmList.innerHTML = ''; // Clear existing list
-    if (dmListEntries.length === 0) {
-        dmList.innerHTML = '<p class="text-sm text-gray-500 p-2">沒有進行中的私人聊天...</p>';
+function renderRequestList(requests) {
+    const listEl = tabContents.request;
+    listEl.innerHTML = '';
+    requestCountEl.textContent = requests.length;
+
+    if (requests.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-gray-500 p-2 empty-message">沒有待處理的好友請求...</p>';
         return;
     }
 
-    const fragment = document.createDocumentFragment();
-    dmListEntries.forEach(entry => {
-        const otherEmail = entry.email;
-        const roomId = getRoomId(ME_EMAIL, otherEmail);
+    requests.forEach(req => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-item flex justify-between items-center bg-gray-700/50 hover:bg-gray-700';
+        item.innerHTML = `
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="center message-avatar bg-red-400">${req.senderEmail.charAt(0).toUpperCase()}</div>
+                <span class="truncate">${req.senderEmail}</span>
+            </div>
+            <div class="flex gap-1">
+                <button data-action="accept" data-email="${req.senderEmail}" class="bg-accent-2 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs transition duration-150">接受</button>
+                <button data-action="reject" data-email="${req.senderEmail}" class="bg-danger hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs transition duration-150">拒絕</button>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+
+    listEl.querySelectorAll('button').forEach(btn => {
+        btn.onclick = (e) => handleFriendRequestAction(e.target.dataset.action, e.target.dataset.email);
+    });
+}
+
+/**
+ * Handles accepting or rejecting a friend request.
+ */
+async function handleFriendRequestAction(action, senderEmail) {
+    const requestDocRef = db.collection('friends').doc(ME_EMAIL).collection('requests').doc(senderEmail);
+    const myFriendListRef = db.collection('friends').doc(ME_EMAIL).collection('list').doc(senderEmail);
+    const senderFriendListRef = db.collection('friends').doc(senderEmail).collection('list').doc(ME_EMAIL);
+    const senderSentRequestRef = db.collection('friends').doc(senderEmail).collection('sent_requests').doc(ME_EMAIL);
+
+    try {
+        if (action === 'accept') {
+            // 1. Add to my friend list
+            await myFriendListRef.set({
+                email: senderEmail,
+                addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                roomId: getDmRoomId(ME_EMAIL, senderEmail)
+            });
+            // 2. Add to sender's friend list (symmetric friendship)
+            await senderFriendListRef.set({
+                email: ME_EMAIL,
+                addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                roomId: getDmRoomId(ME_EMAIL, senderEmail)
+            });
+            // 3. Delete the request
+            await requestDocRef.delete();
+            // 4. Delete the sender's outgoing request
+            await senderSentRequestRef.delete();
+
+            showMessage('好友成功', `${senderEmail} 已成為您的好友！`, 'success');
+        } else if (action === 'reject') {
+            // 1. Delete the request
+            await requestDocRef.delete();
+            // 2. Delete the sender's outgoing request
+            await senderSentRequestRef.delete();
+            showMessage('請求已拒絕', `已拒絕 ${senderEmail} 的好友請求。`, 'info');
+        }
+    } catch (e) {
+        showMessage('操作失敗', `${action === 'accept' ? '處理' : '拒絕'}好友請求失敗。`, 'error');
+        console.error(`Handle request ${action} error: `, e);
+    }
+}
+
+/**
+ * Renders the list of accepted DM friends.
+ */
+function renderDmList(friends) {
+    const listEl = tabContents.dm;
+    listEl.innerHTML = '';
+
+    if (friends.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-gray-500 p-2 empty-message">沒有進行中的私聊...</p>';
+        return;
+    }
+
+    friends.forEach(friend => {
+        const otherEmail = friend.email;
+        const roomId = friend.roomId;
         const initial = otherEmail.charAt(0).toUpperCase();
 
         const item = document.createElement('div');
-        item.id = `dm-item-${roomId}`;
+        item.id = `chat-item-${roomId}`;
         item.className = 'sidebar-item';
-        item.onclick = () => openChatWindow(otherEmail, `@ ${otherEmail}`);
+        item.onclick = () => openChatWindow(roomId, `@ ${otherEmail}`, 'dm', otherEmail);
         
         item.innerHTML = `
             <div class="center message-avatar bg-gray-600">${initial}</div>
-            <span class="truncate">${otherEmail}</span>
+            <div class="flex flex-col min-w-0 flex-grow">
+                <span class="truncate">${otherEmail}</span>
+                <span class="text-xs text-gray-400 truncate">${friend.lastChat ? new Date(friend.lastChat.seconds * 1000).toLocaleTimeString('zh-TW') : '新好友'}</span>
+            </div>
         `;
-        fragment.appendChild(item);
+        listEl.appendChild(item);
     });
-    dmList.appendChild(fragment);
 }
 
-/* ============== Monitor (superadmin) ============== */
+/* ==================== Group System Logic ==================== */
+
+createGroupBtn.onclick = async () => {
+    const groupName = await showMessage('建立新群組', '請輸入群組名稱：', 'prompt'); // Use prompt-like behavior with message box
+    
+    if (typeof groupName !== 'string' || groupName.trim().length < 2) {
+        return showMessage('建立失敗', '群組名稱無效。', 'error');
+    }
+
+    try {
+        const newGroupRef = await db.collection('groups').add({
+            name: groupName.trim(),
+            admin: ME_EMAIL,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastChat: firebase.firestore.FieldValue.serverTimestamp(),
+            memberCount: 1
+        });
+
+        // Add admin as the first member
+        await db.collection('groups').doc(newGroupRef.id).collection('members').doc(ME_EMAIL).set({
+            email: ME_EMAIL,
+            role: 'admin',
+            joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showMessage('建立成功', `群組 "${groupName}" 已建立！`, 'success');
+        openChatWindow(newGroupRef.id, `# ${groupName.trim()}`, 'group'); // Open the new group chat
+
+    } catch (e) {
+        showMessage('建立失敗', '建立群組時發生錯誤。', 'error');
+        console.error("Create group error: ", e);
+    }
+};
+
+/**
+ * Renders the list of joined groups.
+ */
+function renderGroupList(groups) {
+    const listEl = tabContents.group;
+    listEl.innerHTML = '';
+
+    if (groups.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-gray-500 p-2 empty-message">沒有加入任何群組...</p>';
+        return;
+    }
+
+    groups.forEach(group => {
+        const groupId = group.id;
+        const groupName = group.name;
+        const initial = groupName.charAt(0).toUpperCase();
+
+        const item = document.createElement('div');
+        item.id = `chat-item-${groupId}`;
+        item.className = 'sidebar-item';
+        item.onclick = () => openChatWindow(groupId, `# ${groupName}`, 'group', null);
+        
+        item.innerHTML = `
+            <div class="center message-avatar bg-indigo-500">#</div>
+            <div class="flex flex-col min-w-0 flex-grow">
+                <span class="truncate font-semibold">${groupName}</span>
+                <span class="text-xs text-gray-400 truncate">${group.lastChat ? new Date(group.lastChat.seconds * 1000).toLocaleTimeString('zh-TW') : '新群組'}</span>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+}
+
+/**
+ * Sets up the group member list listener and rendering.
+ */
+function setupGroupMemberList(groupId) {
+    memberListContent.innerHTML = ''; // Clear existing list
+    groupManagementAdmin.classList.add('hidden'); // Hide admin controls by default
+
+    // Check if I am the admin for management controls
+    db.collection('groups').doc(groupId).collection('members').doc(ME_EMAIL).get()
+        .then(doc => {
+            const memberRole = doc.exists && doc.data().role === 'admin';
+            if (memberRole) {
+                groupManagementAdmin.classList.remove('hidden');
+                setupGroupMemberManagement(groupId);
+            }
+        });
+
+    const membersRef = db.collection('groups').doc(groupId).collection('members').orderBy('joinedAt');
+    const unsub = membersRef.onSnapshot(snapshot => {
+        memberListContent.innerHTML = '';
+        const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        memberCountEl.textContent = members.length;
+
+        members.forEach(member => {
+            const isMe = member.email === ME_EMAIL;
+            const item = document.createElement('div');
+            item.className = 'flex items-center gap-2 p-1 rounded-md bg-gray-700/50';
+            item.innerHTML = `
+                <div class="center message-avatar w-6 h-6 text-xs ${member.role === 'admin' ? 'bg-red-500' : 'bg-gray-500'}">${member.email.charAt(0).toUpperCase()}</div>
+                <span class="text-sm truncate">${member.email}${isMe ? ' (我)' : ''}</span>
+                ${member.role === 'admin' ? '<span class="text-xs text-red-400 ml-auto">Admin</span>' : ''}
+            `;
+            memberListContent.appendChild(item);
+        });
+    }, error => {
+        console.error("Error listening to group members: ", error);
+    });
+
+    unsubs.push(unsub); // Add to unsubs to be cleared when chat window closes
+}
+
+/**
+ * Sets up member add/remove functionality (Admin only).
+ */
+function setupGroupMemberManagement(groupId) {
+    addMemberBtn.onclick = async () => {
+        const email = manageMemberEmail.value.trim().toLowerCase();
+        if (!email || email === ME_EMAIL) return showMessage('錯誤', '請輸入有效的成員 Email。', 'error');
+
+        const confirmed = await showMessage('確認加入', `確定要將 ${email} 加入群組嗎？`, 'confirm');
+        if (!confirmed) return;
+
+        try {
+            await db.collection('groups').doc(groupId).collection('members').doc(email).set({
+                email: email,
+                role: 'member',
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Update member count on the main group document
+            await db.collection('groups').doc(groupId).update({ memberCount: firebase.firestore.FieldValue.increment(1) });
+            
+            showMessage('加入成功', `${email} 已加入群組。`, 'success');
+            manageMemberEmail.value = '';
+        } catch (e) {
+            showMessage('操作失敗', '加入成員失敗。', 'error');
+            console.error("Add member error: ", e);
+        }
+    };
+
+    removeMemberBtn.onclick = async () => {
+        const email = manageMemberEmail.value.trim().toLowerCase();
+        if (!email || email === ME_EMAIL) return showMessage('錯誤', '不能踢出自己。', 'error');
+
+        const confirmed = await showMessage('確認踢出', `確定要將 ${email} 從群組中踢出嗎？`, 'confirm');
+        if (!confirmed) return;
+
+        try {
+            await db.collection('groups').doc(groupId).collection('members').doc(email).delete();
+             // Update member count on the main group document
+            await db.collection('groups').doc(groupId).update({ memberCount: firebase.firestore.FieldValue.increment(-1) });
+            
+            showMessage('踢出成功', `${email} 已被踢出群組。`, 'success');
+            manageMemberEmail.value = '';
+        } catch (e) {
+            showMessage('操作失敗', '踢出成員失敗。', 'error');
+            console.error("Remove member error: ", e);
+        }
+    };
+}
+
+
+/* ==================== Monitor System Logic (Admin Only) ==================== */
+
 monitorBtn.onclick = async () => {
-    const v = (monitorInput.value || '').trim();
+    const v = (monitorInput.value || '').trim().toLowerCase();
     if (!v || v.indexOf('_') === -1) {
         return showMessage('輸入錯誤', '請輸入正確的監看格式: emailA_emailB', 'error');
     }
-    
-    // Check user role
-    const meDoc = await firebase.firestore().collection('users').doc(ME_EMAIL).get();
-    ME_ROLE = meDoc.exists && meDoc.data().role === 'superadmin' ? meDoc.data().role : 'user';
     
     if (ME_ROLE !== 'superadmin') {
         return showMessage('權限不足', '僅最高管理員可監看聊天記錄。', 'error');
     }
     
-    // The room ID for monitoring is the input string itself (e.g., "a@a.com_b@b.com")
-    openChatWindow(v, `⚠️ 監看中: ${v}`, true);
+    // The room ID for monitoring is the canonical DM room ID
+    const [emailA, emailB] = v.split('_');
+    const roomId = getDmRoomId(emailA, emailB);
+
+    // Check if the room exists before opening
+    try {
+        const roomTest = await db.collection('chats').doc(roomId).collection('messages').limit(1).get();
+        if (roomTest.empty) {
+            return showMessage('監看失敗', '此兩人之間尚未有聊天記錄。', 'error');
+        }
+    } catch (e) {
+        return showMessage('監看錯誤', '無法存取聊天紀錄。', 'error');
+    }
+
+    // Open the chat in monitor mode
+    openChatWindow(roomId, `🚨 監看中: ${v} (限100筆)`, 'monitor', v);
 };
 
 
@@ -693,112 +1134,132 @@ function initFirebase(token) {
         app = firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
         auth = firebase.auth();
-        db.settings({ merge: true }); // Enable merge for setDoc
+        db.settings({ merge: true });
 
-        // Log level for debugging
         firebase.firestore.setLogLevel('debug');
     } catch (e) {
         console.error("Firebase Init Error: ", e);
         showMessage('初始化失敗', 'Firebase 服務無法初始化。', 'error');
         return;
     }
-
+    
     // Attempt custom token sign-in if available (provided by canvas environment)
-    auth.signInWithCustomToken(token)
-        .catch(async (error) => {
-            console.error("Custom token sign-in failed, trying anonymous or showing login:", error);
-            // Fallback to anonymous sign-in if custom token fails or is not provided
-            if (!token) {
-                 await auth.signInAnonymously();
-            } else {
-                 // If token exists but fails, show error and login
-                 showMessage('登入失敗', '初始驗證失敗，請手動登入。', 'error');
-                 loginScreen.classList.remove('hidden');
-                 appContainer.classList.add('hidden');
-            }
-        });
+    if (token) {
+        auth.signInWithCustomToken(token)
+            .catch(async (error) => {
+                console.error("Custom token sign-in failed, showing login:", error);
+                // Fallback to anonymous sign-in is removed to ensure users use real accounts
+                auth.signOut();
+            });
+    }
+
+    // Main Auth State Listener (Controls Page 1 / Page 2 switch)
+    auth.onAuthStateChanged(async user => {
+        if (user && user.email) {
+            // User is signed in (Google)
+            ME_EMAIL = user.email.toLowerCase();
+            ME_ID = user.uid;
+
+            // 1. Check/Set User Role and Profile
+            const userDocRef = db.collection('users').doc(ME_EMAIL);
+            const userDoc = await userDocRef.get();
+            
+            // Check for admin/superadmin role (Hardcoded check)
+            ME_ROLE = (ME_EMAIL === ADMIN_EMAIL) ? 'superadmin' : (userDoc.exists && userDoc.data().role) ? userDoc.data().role : 'user';
+
+            // Update Firestore profile
+            await userDocRef.set({
+                email: ME_EMAIL,
+                role: ME_ROLE,
+                lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+            
+            // 2. Update UI
+            document.getElementById('me-email').textContent = ME_EMAIL;
+            document.getElementById('me-avatar').textContent = ME_EMAIL.charAt(0).toUpperCase();
+            document.getElementById('me-role').textContent = ME_ROLE;
+            
+            // Show admin controls if superadmin
+            adminControls.classList.toggle('hidden', ME_ROLE !== 'superadmin');
+            
+            // ** Show app, hide login (Switch to Page 2) **
+            loginScreen.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+
+            // 3. Setup Sidebar Listeners
+            setupSidebarListeners();
+
+        } else {
+            // User is signed out or only anonymous
+            ME_EMAIL = null;
+            ME_ID = null;
+            ME_ROLE = 'user';
+            
+            clearUnsubs(); // Clear all listeners
+            closeChatWindow(); // Close any open chat
+            adminControls.classList.add('hidden');
+            
+            // ** Show login, hide app (Switch to Page 1) **
+            loginScreen.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+        }
+    });
 }
 
-/**
- * Main function to handle user state changes. This controls the 2-page switch.
- */
-firebase.auth().onAuthStateChanged(async user => {
-    if (user && (user.email || user.isAnonymous)) {
-        // User is signed in (either Google or Anonymous)
-        ME_EMAIL = user.email || user.uid + '@anon.com'; // Use email if available (Google), otherwise use UID
-        ME_ID = user.uid;
+function setupSidebarListeners() {
+    clearUnsubs();
 
-        // 1. Update user info on screen
-        document.getElementById('me-email').textContent = ME_EMAIL;
-        document.getElementById('me-avatar').textContent = ME_EMAIL.charAt(0).toUpperCase();
+    // 1. Friend Requests Listener
+    const reqRef = db.collection('friends').doc(ME_EMAIL).collection('requests').orderBy('sentAt', 'desc');
+    unsubs.push(reqRef.onSnapshot(snapshot => {
+        const requests = snapshot.docs.map(doc => doc.data());
+        renderRequestList(requests);
+    }, error => console.error("Request listener error:", error)));
 
-        // 2. Set/Update user document in Firestore for profile/role tracking
-        const userDocRef = firebase.firestore().collection('users').doc(ME_EMAIL);
-        
-        // Fetch current role or default to 'user'
-        const userDoc = await userDocRef.get();
-        ME_ROLE = userDoc.exists && userDoc.data().role ? userDoc.data().role : 'user';
-        
-        // Update Firestore with latest sign-in info (non-destructive set)
-        await userDocRef.set({
-            email: ME_EMAIL,
-            role: ME_ROLE,
-            lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-            // Ensure role persists if it was previously set, unless this is a new anonymous user
-        }, { merge: true });
-        
-        document.getElementById('me-role').textContent = ME_ROLE;
-        
-        // ** Show app, hide login (Switch to Page 2) **
-        loginScreen.classList.add('hidden');
-        appContainer.classList.remove('hidden');
+    // 2. DM Friends Listener
+    const dmRef = db.collection('friends').doc(ME_EMAIL).collection('list').orderBy('lastChat', 'desc');
+    unsubs.push(dmRef.onSnapshot(snapshot => {
+        const friends = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        renderDmList(friends);
+    }, error => console.error("DM friend list error:", error)));
 
-        // 3. Setup DM list listener (only for non-anonymous users to track friends)
-        if (user.email) {
-            const dmListRef = firebase.firestore().collection('users').doc(ME_EMAIL).collection('dm_friends').orderBy('lastChat', 'desc');
-            const dmUnsub = dmListRef.onSnapshot(snapshot => {
-                const dmListEntries = snapshot.docs.map(doc => ({ email: doc.id }));
-                renderDmList(dmListEntries);
-            }, error => {
-                console.error("Error listening to DM list: ", error);
-            });
-            unsubs.push(dmUnsub);
+    // 3. Group List Listener (Only groups I am a member of)
+    const myGroupsRef = db.collection('groups').where(`members.${ME_EMAIL}.email`, '==', ME_EMAIL); // Cannot query subcollection, so query main doc by checking existence in an index field
+    // ALTERNATIVE: Query members subcollection and then fetch group details (more complex but correct)
+    
+    // --- Using the correct but complex approach: Querying the members subcollection is impossible. We must query the groups collection.
+    // Instead of querying by subcollection, we assume group documents have a MAP field storing members for simple lookups.
+    // Let's stick to querying the membership *status* (assuming a separate membership tracker collection or a field on the user doc pointing to group IDs)
+    
+    // The most robust way is to listen to a list of group IDs on the user's profile, but for a single-file implementation, we will query the groups collection for simplicity:
+    const groupsRef = db.collection('groups');
+    unsubs.push(groupsRef.onSnapshot(async () => {
+        // Fetch group memberships first
+        const memberDocs = await db.collection('groups').where('memberCount', '>', 0).get(); // A broad query, then filter locally
+        const myGroupIds = [];
+        
+        for (const doc of memberDocs.docs) {
+            // Check subcollection membership (expensive, but necessary here)
+            const memberCheck = await db.collection('groups').doc(doc.id).collection('members').doc(ME_EMAIL).get();
+            if (memberCheck.exists) {
+                 myGroupIds.push({ id: doc.id, ...doc.data() });
+            }
         }
-
-    } else {
-        // User is signed out
-        ME_EMAIL = null;
-        ME_ID = null;
         
-        // Unsubscribe all listeners
-        unsubs.forEach(u => u && u());
-        unsubs.length = 0;
-        Object.values(openChats).forEach(o => o.unsub && o.unsub());
-        
-        // ** Show login, hide app (Switch to Page 1) **
-        loginScreen.classList.remove('hidden');
-        appContainer.classList.add('hidden');
-    }
-});
+        // Final list includes only groups the user is a member of
+        renderGroupList(myGroupIds.sort((a, b) => (b.lastChat?.seconds || 0) - (a.lastChat?.seconds || 0)));
 
-/* ============== Google Login Implementation (The Main Fix) ============== */
+    }, error => console.error("Group list error:", error)));
+}
+
+/* ============== Google Login Implementation ============== */
 googleLoginBtn.onclick = async () => {
     try {
-        // 1. Create a Google Auth Provider instance
         const provider = new firebase.auth.GoogleAuthProvider();
-        
-        // 2. Sign in with popup - this triggers the external Google login page
         await firebase.auth().signInWithPopup(provider);
-        // onAuthStateChanged listener handles the success after the popup closes.
         showMessage('登入成功', '您已成功登入，歡迎回來！', 'success');
-
     } catch (error) {
-        // Handle popup closed by user or other auth errors gracefully
-        if (error.code === 'auth/popup-closed-by-user') {
-             console.log("Google Sign-in: Popup closed by user.");
-        } else if (error.code === 'auth/cancelled-popup-request') {
-             showMessage('登入錯誤', '登入視窗已被另一個請求取代，請稍後重試。', 'error');
-        } else {
+        if (error.code !== 'auth/popup-closed-by-user') {
              showMessage('登入失敗', '發生錯誤：' + (error.message || '未知錯誤'), 'error');
              console.error("Google Sign-in Error: ", error);
         }
@@ -819,7 +1280,6 @@ logoutBtn.onclick = () => {
 window.onload = function() {
     initFirebase(initialAuthToken);
 }
-
 </script>
 </body>
 </html>
