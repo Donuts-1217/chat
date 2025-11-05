@@ -128,11 +128,9 @@
   // Modern Firebase V11 Modular Imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  // Firestore import is not strictly needed for login page, but included for completeness if needed later
-  // import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
-
+  
   /* ================= Global Variables & Configuration ================= */
-  // 檢查並解析環境提供的 Firebase 配置
+  // 必須使用系統環境提供的配置變數
   const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
   // DOM Elements
@@ -165,70 +163,60 @@
 
   // 檢查配置是否完整
   if (!firebaseConfig || !firebaseConfig.apiKey) {
+    // 這裡使用 showCustomModal 來避免使用 alert()
     showCustomModal('設定錯誤', 'Firebase 配置遺失或無效，請確認 API 金鑰已設定。');
     loginBtn.disabled = true;
     loginBtn.textContent = "設定錯誤 (請見訊息)";
-    throw new Error("Firebase configuration error."); 
-  }
+    console.error("Firebase configuration error: __firebase_config missing or invalid.");
+    // 為了防止程式碼崩潰，這裡可以 throw error 或 return
+  } else {
+    /* ================= Firebase Initialization ================= */
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-  /* ================= Firebase Initialization ================= */
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
+    // 登入按鈕點擊事件
+    loginBtn.onclick = async () => {
+      try {
+        loginBtn.textContent = '登入中...';
+        loginBtn.disabled = true;
 
-  // 登入按鈕點擊事件
-  loginBtn.onclick = async () => {
-    try {
-      loginBtn.textContent = '登入中...';
-      loginBtn.disabled = true;
-
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      // 檢查是否為 Google 帳號 (有 email)
-      if (user && user.email) {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        
         // 成功登入，導向 chat.html
+        if (user) {
+          window.location.href = 'chat.html';
+        }
+
+      } catch (error) {
+        console.error("Login Error:", error);
+        
+        let errorMessage = "登入過程中發生未知錯誤。";
+        if (error.code === 'auth/popup-closed-by-user') {
+          errorMessage = "登入視窗被您關閉。";
+        } else if (error.code === 'auth/cancelled-popup-request') {
+          errorMessage = "您已發出另一個登入請求，前一個被取消。";
+        }
+        
+        showCustomModal('登入失敗', errorMessage + '<br><br>請檢查您的網路連線或授權網域設定。');
+
+      } finally {
+        loginBtn.textContent = '使用 Google 帳號登入';
+        loginBtn.disabled = false;
+      }
+    };
+
+    // 檢查是否已登入 (如果已登入，直接跳轉)
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
         window.location.href = 'chat.html';
       } else {
-        // 如果沒有 email，可能是非預期的登入方式，強制登出並提示
-        showCustomModal('登入失敗', '我們需要一個有效的 Google 帳號（包含 Email）才能繼續。請重新嘗試。');
-        await auth.signOut();
+        loginBtn.disabled = false;
+        loginBtn.textContent = '使用 Google 帳號登入';
       }
-
-    } catch (error) {
-      console.error("Login Error:", error);
-      
-      let errorMessage = "登入過程中發生未知錯誤。";
-      
-      // 處理常見的 Firebase 錯誤碼
-      if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = "登入視窗被您關閉。";
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        errorMessage = "您已發出另一個登入請求，前一個被取消。";
-      } else if (error.message && error.message.includes('auth/unauthorized-domain')) {
-        errorMessage = "網域未被授權。請確保您的 Firebase 設定已將此網域加入授權清單。";
-      }
-      
-      showCustomModal('登入失敗', errorMessage + '<br><br>請檢查您的網路連線或授權設定。');
-
-    } finally {
-      loginBtn.textContent = '使用 Google 帳號登入';
-      loginBtn.disabled = false;
-    }
-  };
-
-  // 檢查是否已登入 (用於處理從 chat.html 返回的情況)
-  onAuthStateChanged(auth, (user) => {
-    if (user && user.email) {
-      // 如果用戶已經登入，直接跳轉
-      window.location.href = 'chat.html';
-    } else {
-      // 否則保持在登入頁面
-      loginBtn.disabled = false;
-      loginBtn.textContent = '使用 Google 帳號登入';
-    }
-  });
-
+    });
+  }
 </script>
 </body>
 </html>
