@@ -368,9 +368,9 @@ const ADMIN_EMAIL = 'chianghansen0302@gmail.com';
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // -----------------------------------------------------------------------
-// ⚠️ 修正: 將您提供的配置設為優先 fallback
+// ⚠️ 修正: 使用用戶提供的明確 Firebase 配置
 // -----------------------------------------------------------------------
-const DEFAULT_FIREBASE_CONFIG = {
+const firebaseConfig = {
     apiKey: "AIzaSyDwRdQFgQVn5Un8Od2nP4u5EbMx-dMOYoU",
     authDomain: "chat-52c0d.firebaseapp.com",
     projectId: "chat-52c0d",
@@ -379,22 +379,6 @@ const DEFAULT_FIREBASE_CONFIG = {
     appId: "1:449329325475:web:75f255c4055360dc9e6616",
     measurementId: "G-8R8648H53V"
 };
-
-const firebaseConfig = (() => {
-    try {
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        const config = JSON.parse(configStr);
-        // 如果環境配置不完整 (例如缺少 apiKey)，則使用預設配置
-        if (!config.apiKey) {
-            console.warn("Environment Firebase config is missing or invalid. Falling back to default configuration.");
-            return DEFAULT_FIREBASE_CONFIG;
-        }
-        return config;
-    } catch (e) {
-        console.error("Failed to parse __firebase_config, falling back to default:", e);
-        return DEFAULT_FIREBASE_CONFIG;
-    }
-})();
 // -----------------------------------------------------------------------
 
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -1094,7 +1078,7 @@ function setupGroupMemberManagement(groupId) {
             // Update member count on the main group document
             await db.collection('groups').doc(groupId).update({ memberCount: firebase.firestore.FieldValue.increment(1) });
             
-            showMessage('加入成功', `${email} 已加入群組。`, 'success');
+            showMessage('加入成功', `${email} 已加入群組。', 'success');
             manageMemberEmail.value = '';
         } catch (e) {
             showMessage('操作失敗', '加入成員失敗。', 'error');
@@ -1161,16 +1145,6 @@ monitorBtn.onclick = async () => {
  * Initializes Firebase, sets up state, and handles authentication.
  */
 function initFirebase(token) {
-    // ⚠️ 檢查 Firebase 配置是否有效
-    if (!firebaseConfig || !firebaseConfig.apiKey) {
-        console.error("Firebase Configuration Error: API key is missing.");
-        // 如果配置無效，則顯示錯誤訊息並停止初始化
-        showMessage('初始化失敗', 'Firebase 配置資訊缺失 (API Key)。請確認您的執行環境是否正確提供了配置。', 'error');
-        // 確保登入畫面可見
-        loginScreen.classList.remove('hidden');
-        return;
-    }
-
     try {
         app = firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
@@ -1291,13 +1265,8 @@ function setupSidebarListeners() {
 googleLoginBtn.onclick = async () => {
     // 檢查 Firebase 是否初始化
     if (!auth) {
-        // Call initFirebase again in case it failed the first time but config is now available
-        if (!firebaseConfig.apiKey) {
-            return showMessage('錯誤', 'Firebase 尚未初始化，且配置資訊缺失，無法登入。', 'error');
-        }
-        // Attempt re-init
         initFirebase(initialAuthToken);
-        if (!auth) return; // If re-init failed, stop.
+        if (!auth) return;
     }
     
     try {
@@ -1324,6 +1293,7 @@ logoutBtn.onclick = () => {
 
 /* ============== initial: start firebase ============== */
 window.onload = function() {
+    // 傳入從環境獲得的初始 token (如果存在)
     initFirebase(initialAuthToken);
 }
 </script>
