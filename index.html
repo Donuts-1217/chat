@@ -366,7 +366,22 @@ a{color:inherit}
 // Global Variables for Firebase configuration provided by the environment
 const ADMIN_EMAIL = 'chianghansen0302@gmail.com';
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+// ⚠️ 修正: 確保即使 __firebase_config 遺失或為空，也能安全解析
+const firebaseConfig = (() => {
+    try {
+        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        const config = JSON.parse(configStr);
+        // Ensure apiKey is present
+        if (!config.apiKey) {
+            console.warn("Firebase config is present but apiKey is missing. This will likely cause initialization failure.");
+        }
+        return config;
+    } catch (e) {
+        console.error("Failed to parse __firebase_config:", e);
+        return {};
+    }
+})();
+
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
 // Firebase App Initialization
@@ -937,7 +952,12 @@ function renderDmList(friends) {
 /* ==================== Group System Logic ==================== */
 
 createGroupBtn.onclick = async () => {
-    const groupName = await showMessage('建立新群組', '請輸入群組名稱：', 'prompt'); // Use prompt-like behavior with message box
+    // Re-use showMessage for prompt-like behavior
+    const confirmed = await showMessage('建立新群組', '請輸入群組名稱：', 'confirm'); 
+    if (!confirmed) return;
+
+    // A simple text input for prompt replacement
+    const groupName = prompt('請輸入群組名稱:');
     
     if (typeof groupName !== 'string' || groupName.trim().length < 2) {
         return showMessage('建立失敗', '群組名稱無效。', 'error');
@@ -1130,6 +1150,16 @@ monitorBtn.onclick = async () => {
  * Initializes Firebase, sets up state, and handles authentication.
  */
 function initFirebase(token) {
+    // ⚠️ 修正: 檢查 Firebase 配置是否有效
+    if (!firebaseConfig || !firebaseConfig.apiKey) {
+        console.error("Firebase Configuration Error: API key or config object is missing.");
+        // 如果配置無效，則顯示錯誤訊息並停止初始化
+        showMessage('初始化失敗', 'Firebase 配置資訊缺失 (API Key)。請確認您的執行環境是否正確提供了配置。', 'error');
+        // 確保登入畫面可見
+        loginScreen.classList.remove('hidden');
+        return;
+    }
+
     try {
         app = firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
@@ -1147,9 +1177,8 @@ function initFirebase(token) {
     if (token) {
         auth.signInWithCustomToken(token)
             .catch(async (error) => {
-                console.error("Custom token sign-in failed, showing login:", error);
-                // Fallback to anonymous sign-in is removed to ensure users use real accounts
-                auth.signOut();
+                console.error("Custom token sign-in failed, falling back to Google login:", error);
+                auth.signOut(); // Ensure we are signed out before showing Google login
             });
     }
 
@@ -1224,22 +1253,17 @@ function setupSidebarListeners() {
     }, error => console.error("DM friend list error:", error)));
 
     // 3. Group List Listener (Only groups I am a member of)
-    const myGroupsRef = db.collection('groups').where(`members.${ME_EMAIL}.email`, '==', ME_EMAIL); // Cannot query subcollection, so query main doc by checking existence in an index field
-    // ALTERNATIVE: Query members subcollection and then fetch group details (more complex but correct)
-    
-    // --- Using the correct but complex approach: Querying the members subcollection is impossible. We must query the groups collection.
-    // Instead of querying by subcollection, we assume group documents have a MAP field storing members for simple lookups.
-    // Let's stick to querying the membership *status* (assuming a separate membership tracker collection or a field on the user doc pointing to group IDs)
-    
-    // The most robust way is to listen to a list of group IDs on the user's profile, but for a single-file implementation, we will query the groups collection for simplicity:
     const groupsRef = db.collection('groups');
     unsubs.push(groupsRef.onSnapshot(async () => {
-        // Fetch group memberships first
-        const memberDocs = await db.collection('groups').where('memberCount', '>', 0).get(); // A broad query, then filter locally
+        // --- NOTE: This is an expensive way to check group membership due to Firestore limitations in single-file environments.
+        // It fetches all group data and checks membership in client. For real-world use, this needs server-side optimization.
+        
+        const allGroupDocs = await db.collection('groups').where('memberCount', '>', 0).get();
         const myGroupIds = [];
         
-        for (const doc of memberDocs.docs) {
-            // Check subcollection membership (expensive, but necessary here)
+        // Loop through all groups to check if I am a member
+        for (const doc of allGroupDocs.docs) {
+            // Check subcollection membership
             const memberCheck = await db.collection('groups').doc(doc.id).collection('members').doc(ME_EMAIL).get();
             if (memberCheck.exists) {
                  myGroupIds.push({ id: doc.id, ...doc.data() });
@@ -1254,6 +1278,11 @@ function setupSidebarListeners() {
 
 /* ============== Google Login Implementation ============== */
 googleLoginBtn.onclick = async () => {
+    // 檢查 Firebase 是否初始化
+    if (!auth) {
+        return showMessage('錯誤', 'Firebase 尚未初始化，無法登入。', 'error');
+    }
+    
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
         await firebase.auth().signInWithPopup(provider);
@@ -1282,4 +1311,4 @@ window.onload = function() {
 }
 </script>
 </body>
-</html> 
+</html>
