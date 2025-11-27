@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
@@ -225,6 +224,88 @@ document.getElementById("sendBtn").onclick = async () => {
     text: msg,
     time: Date.now()
   });
+
+  document.getElementById("messageInput").value = "";
+};
+
+// --- 群聊功能加入 ---
+async function createGroup() {
+  if (currentUser.email !== "chianghansen0302@gmail.com") {
+    alert("只有管理員能建立群組！");
+    return;
+  }
+  const name = prompt("群組名稱：");
+  if (!name) return;
+
+  const g = await addDoc(collection(db, "groups"), {
+    name,
+    owner: currentUser.uid,
+    members: [currentUser.uid]
+  });
+
+  alert("群組建立成功");
+  loadGroups();
+}
+
+document.getElementById("createGroupBtn").onclick = createGroup;
+
+function loadGroups() {
+  onSnapshot(collection(db, "groups"), (snap) => {
+    const list = document.getElementById("groupList");
+    list.innerHTML = "";
+    snap.forEach((g) => {
+      const li = document.createElement("li");
+      li.textContent = g.data().name;
+      li.onclick = () => openGroup(g.id);
+      list.appendChild(li);
+    });
+  });
+}
+
+let currentGroup = null;
+function openGroup(gid) {
+  currentGroup = gid;
+  currentChat = null;
+  document.getElementById("currentChatName").textContent = "群聊：" + gid;
+
+  const msgRef = collection(db, "groups", gid, "messages");
+  const q = query(msgRef, where("time", ">", 0));
+  onSnapshot(q, (snap) => {
+    const chat = document.getElementById("chatWindow");
+    chat.innerHTML = "";
+
+    const msgs = [];
+    snap.forEach((d) => msgs.push(d.data()));
+    msgs.sort((a,b)=>a.time - b.time);
+
+    msgs.forEach((d) => {
+      const div = document.createElement("div");
+      div.textContent = `${d.sender}: ${d.text}`;
+      chat.appendChild(div);
+    });
+  });
+}
+
+// 修正訊息排序 + 送出
+const sendBtn = document.getElementById("sendBtn");
+sendBtn.onclick = async () => {
+  const msg = document.getElementById("messageInput").value;
+  if (!msg) return;
+
+  if (currentGroup) {
+    await addDoc(collection(db, "groups", currentGroup, "messages"), {
+      sender: currentUser.email,
+      text: msg,
+      time: Date.now()
+    });
+  } else if (currentChat) {
+    await addDoc(collection(db, "messages"), {
+      between: getChatID(currentChat),
+      sender: currentUser.email,
+      text: msg,
+      time: Date.now()
+    });
+  }
 
   document.getElementById("messageInput").value = "";
 };
