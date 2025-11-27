@@ -5,8 +5,8 @@
 <title>Chat Login</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { font-family:"微軟正黑體"; display:flex; justify-content:center; align-items:center; height:100vh; background:#f2f5fa; }
-  button { padding:10px 20px; font-size:16px; cursor:pointer; }
+body { font-family:"微軟正黑體"; display:flex; justify-content:center; align-items:center; height:100vh; background:#f2f5fa; }
+button { padding:10px 20px; font-size:16px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -15,7 +15,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -32,6 +32,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// 檢查是否已登入
+onAuthStateChanged(auth,user=>{
+  if(user) window.location.href="chat.html";
+});
+
+// 登入
 document.getElementById("googleSignIn").onclick = async () => {
   const result = await signInWithPopup(auth, provider);
   const user = result.user;
@@ -51,7 +57,7 @@ document.getElementById("googleSignIn").onclick = async () => {
     });
   }
 
-  // 登入後跳轉到 chat.html
+  // 登入成功跳轉聊天頁
   window.location.href = "chat.html";
 };
 </script>

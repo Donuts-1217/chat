@@ -82,8 +82,8 @@ const editStickyBtn = document.getElementById("editStickyBtn");
 let currentUser = null;
 let currentChatId = null;
 
-// 檢查登入狀態
-onAuthStateChanged(auth, async user=>{
+// 登入狀態檢查
+onAuthStateChanged(auth,user=>{
   if(user){
     currentUser=user;
     showMain();
@@ -117,22 +117,6 @@ async function loadFriends(){
     div.onclick = ()=> openChat([currentUser.uid,fid].sort().join("-"), fData.nickname);
     friendListDiv.appendChild(div);
   }
-}
-
-// 取得群組列表
-async function loadGroups(){
-  groupListDiv.innerHTML="";
-  const qSnap = await getDocs(collection(db,"Groups"));
-  qSnap.forEach(docSnap=>{
-    const group = docSnap.data();
-    if(group.members.includes(currentUser.uid)){
-      const div=document.createElement("div");
-      div.className="group";
-      div.textContent=group.name;
-      div.onclick=()=>openChat(docSnap.id, group.name);
-      groupListDiv.appendChild(div);
-    }
-  });
 }
 
 // 開啟聊天
@@ -171,53 +155,6 @@ async function sendMessage(){
 chatInput.addEventListener("keydown", e=>{
   if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); }
 });
-
-// 加好友
-addFriendBtn.onclick=async()=>{
-  const email = prompt("輸入好友Email");
-  if(!email) return;
-  const qSnap = await getDocs(collection(db,"Users"));
-  let fid=null;
-  qSnap.forEach(doc=>{ if(doc.data().email===email) fid=doc.id; });
-  if(!fid){ alert("找不到該用戶"); return; }
-  await updateDoc(doc(db,"Users",currentUser.uid), { friends: arrayUnion(fid) });
-  await updateDoc(doc(db,"Users",fid), { friends: arrayUnion(currentUser.uid) });
-  loadFriends();
-}
-
-// 創建群組
-createGroupBtn.onclick=async()=>{
-  const gName = prompt("輸入群組名稱");
-  if(!gName) return;
-  const gRef = doc(collection(db,"Groups"));
-  await setDoc(gRef,{
-    name: gName,
-    admin: currentUser.uid,
-    members: [currentUser.uid],
-    createdAt: Date.now()
-  });
-  loadGroups();
-}
-
-// 設定Pro (Admin)
-setProBtn.onclick=async()=>{
-  const email = setProEmail.value.trim();
-  if(!email) return;
-  const qSnap = await getDocs(collection(db,"Users"));
-  let uid=null;
-  qSnap.forEach(doc=>{ if(doc.data().email===email) uid=doc.id; });
-  if(!uid){ alert("找不到"); return; }
-  await updateDoc(doc(db,"Users",uid), { role:"pro" });
-  alert("設定完成");
-}
-
-// 修改便利貼 (Pro)
-editStickyBtn.onclick=async()=>{
-  const note = prompt("輸入便利貼內容");
-  if(note===null) return;
-  await updateDoc(doc(db,"Users",currentUser.uid), { stickyNote: note });
-  loadFriends();
-}
 
 // 登出
 logoutBtn.onclick=async()=>{ await signOut(auth); window.location.href="login.html"; }
